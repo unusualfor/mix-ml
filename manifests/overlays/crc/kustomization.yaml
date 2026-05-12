@@ -6,3 +6,4 @@ resources:
 
 patches:
   - path: patches/resources.yaml
+  - path: patches/frontend-resources.yaml
