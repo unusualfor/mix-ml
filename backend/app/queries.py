@@ -200,3 +200,31 @@ CANDIDATE_CLASSES = text("""
       )
     ORDER BY ic.name
 """)
+
+# ---------------------------------------------------------------------------
+# flavor / substitution
+# ---------------------------------------------------------------------------
+
+ALL_BOTTLES_WITH_PROFILE = text("""
+    SELECT b.id, b.class_id, ic.name AS class_name,
+           ic.parent_id, p.name AS family_name,
+           b.brand, b.label, b.on_hand, b.flavor_profile
+    FROM bottle b
+    JOIN ingredient_class ic ON ic.id = b.class_id
+    LEFT JOIN ingredient_class p ON p.id = ic.parent_id
+    ORDER BY ic.name, b.brand
+""")
+
+RECIPE_INGREDIENTS_FOR_SUBSTITUTION = text("""
+    SELECT ri.id AS recipe_ingredient_id, ri.class_id,
+           ic.name AS class_name, ic.parent_id,
+           p.name AS parent_family,
+           ri.amount, ri.unit,
+           ri.is_optional, ri.is_garnish, ic.is_commodity,
+           ri.alternative_group_id
+    FROM recipe_ingredient ri
+    JOIN ingredient_class ic ON ic.id = ri.class_id
+    LEFT JOIN ingredient_class p ON p.id = ic.parent_id
+    WHERE ri.recipe_id = :recipe_id
+    ORDER BY ri.id
+""")

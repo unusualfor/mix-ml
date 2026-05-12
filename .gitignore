@@ -33,3 +33,11 @@ db/seed.sql.bak
 
 # Script outputs (regenerable)
 scripts/output/
+
+# caveman
+AGENTS.md
+.clinerules/caveman.md
+.cursor/rules/caveman.mdc
+.github/copilot-instructions.md
+.opencode/AGENTS.md
+.windsurf/rules/caveman.md

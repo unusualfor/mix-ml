@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import IngredientDetail, RecipeDetail, RecipeListResponse
 from app import queries
+from app.services.substitution import compute_substitutions
 
 router = APIRouter(tags=["recipes"])
 
@@ -69,3 +70,25 @@ def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
     if row is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return _recipe_detail(db, dict(row))
+
+
+@router.get("/recipes/{recipe_id}/substitutions")
+def recipe_substitutions(
+    recipe_id: int,
+    tier: Literal["strict", "loose", "both"] = Query("both"),
+    strict_threshold: float = Query(0.25),
+    loose_threshold: float = Query(0.20),
+    include_satisfied: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    result = compute_substitutions(
+        db,
+        recipe_id,
+        tier=tier,
+        strict_threshold=strict_threshold,
+        loose_threshold=loose_threshold,
+        include_satisfied=include_satisfied,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return result

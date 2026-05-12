@@ -242,3 +242,82 @@ class OptimizeNextResponse(BaseModel):
     current_state: OptimizeCurrentState
     ranked_candidates: list[RankedCandidate]
     computation: OptimizeComputation
+
+
+# -- similar-bottles --------------------------------------------------------
+
+class BottleSummary(BaseModel):
+    id: int
+    brand: str
+    label: str | None
+    class_name: str
+    parent_family: str | None
+
+
+class SimilarBottleResult(BaseModel):
+    bottle: BottleSummary
+    distance: float
+    same_family: bool
+    top_shared_dimensions: list[str]
+    top_differing_dimensions: list[str]
+
+
+class SimilarBottlesResponse(BaseModel):
+    pivot: BottleSummary
+    results: list[SimilarBottleResult]
+
+
+# -- substitutions ----------------------------------------------------------
+
+class SubstitutionCandidate(BaseModel):
+    bottle: BottleSummary
+    distance: float
+    tier: Literal["strict", "loose"]
+    rationale: str
+
+
+class SubstitutionTiers(BaseModel):
+    strict: list[SubstitutionCandidate] = []
+    loose: list[SubstitutionCandidate] = []
+
+
+class SubstitutionFeasibility(BaseModel):
+    can_make: bool
+    missing_count: int
+
+
+class IngredientAnalysis(BaseModel):
+    recipe_ingredient_id: int
+    class_name: str
+    parent_family: str | None = None
+    amount: float | None = None
+    unit: str | None = None
+    is_satisfied: bool
+    anti_doppione_classes: list[str] = []
+    satisfied_by_bottles: list[SatisfyingBottle] = []
+    substitutions: SubstitutionTiers | None = None
+    note: str | None = None
+
+
+class SubstitutionsResponse(BaseModel):
+    recipe: RecipeListItem
+    current_feasibility: SubstitutionFeasibility
+    ingredients_analysis: list[IngredientAnalysis]
+
+
+# -- substitution-trace -----------------------------------------------------
+
+class TraceBottleDetail(BaseModel):
+    bottle: BottleSummary
+    distance: float
+    included: bool
+    exclusion_reason: str | None = None
+    tier: str | None = None
+
+
+class SubstitutionTraceResponse(BaseModel):
+    recipe_ingredient_id: int
+    class_name: str
+    pivot_profile: dict[str, int] | None
+    pivot_source: str
+    on_hand_bottles: list[TraceBottleDetail]

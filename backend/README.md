@@ -85,6 +85,33 @@ Pesi default: $w_g = 0.7$, $w_s = 0.3$ ($w_g + w_s = 1$).
 Parametri opzionali: `gustative_weight`, `structural_weight`.
 Errori: 404 se una bottle non esiste, 422 se i pesi non sommano a 1.
 
+## Similarity & Substitution
+
+Due endpoint complementari basati su `flavor_distance`:
+
+| Metodo | Path | Descrizione |
+|--------|------|-------------|
+| GET | `/api/flavor/similar-bottles?bottle_id=<id>` | Ranking bottle per distanza da un pivot |
+| GET | `/api/recipes/{id}/substitutions` | Sostituti per ingredienti mancanti |
+| GET | `/api/flavor/substitution-trace?recipe_id=<id>&recipe_ingredient_id=<id>` | Debug completo logica sostituzione |
+
+### Similar Bottles
+
+Parametri: `top` (default 10), `max_distance`, `same_family_only`.
+Ritorna le bottle più vicine al pivot con `top_shared_dimensions` e
+`top_differing_dimensions` per spiegare la similarità.
+
+### Substitutions
+
+Per ogni `recipe_ingredient` non soddisfatto:
+1. Calcola un **pivot profile** dalla classe richiesta (o dai sibling)
+2. Esclude bottle **anti-doppione** (classi già usate nella ricetta)
+3. Classifica per **tier**: `strict` (stessa famiglia, ≤ 0.25) o
+   `loose` (cross-family, ≤ 0.20)
+
+Parametri: `tier=strict|loose|both`, `strict_threshold`, `loose_threshold`,
+`include_satisfied`.
+
 ## Build immagine OCI
 
 ```bash

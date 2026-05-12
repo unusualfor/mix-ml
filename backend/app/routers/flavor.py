@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app import queries
 from app.services.flavor import flavor_breakdown
+from app.services.substitution import (
+    compute_similar_bottles,
+    compute_substitution_trace,
+)
 
 router = APIRouter(tags=["flavor"])
 
@@ -64,3 +68,38 @@ def distance(
         "weights": result.weights,
         "per_dimension": [d.model_dump() for d in result.per_dimension],
     }
+
+
+@router.get("/flavor/similar-bottles")
+def similar_bottles(
+    bottle_id: int = Query(...),
+    top: int = Query(10, ge=1, le=50),
+    max_distance: float | None = Query(None),
+    same_family_only: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    result = compute_similar_bottles(
+        db,
+        bottle_id,
+        top=top,
+        max_distance=max_distance,
+        same_family_only=same_family_only,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Bottle {bottle_id} not found")
+    return result
+
+
+@router.get("/flavor/substitution-trace")
+def substitution_trace(
+    recipe_id: int = Query(...),
+    recipe_ingredient_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    result = compute_substitution_trace(db, recipe_id, recipe_ingredient_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Recipe or recipe_ingredient not found",
+        )
+    return result
