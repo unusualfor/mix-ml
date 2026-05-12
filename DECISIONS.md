@@ -17,6 +17,9 @@ with a feasibility engine that answers _"what can I make right now?"_.
 | — | 4 – API (read) | FastAPI: `/api/classes`, `/api/recipes` |
 | — | 5 – Bottles | CRUD + bulk upsert for personal bottle inventory |
 | `v0.3` | 6 – Feasibility | `can-make-now`, per-recipe feasibility, commodity ingredients |
+| `v0.4` | 7 – Optimizer | `optimize-next` endpoint, assumed-available wines |
+| `v0.5a` | 8a – Flavor distance | `flavor_distance` metric, `/flavor/distance` endpoint, offline heatmap+clustering script |
+| `v0.5b` | 8b – Substitution | `/flavor/similar-bottles`, `/recipes/{id}/substitutions`, `/flavor/substitution-trace` |
 
 ---
 
@@ -189,12 +192,39 @@ This means `oc apply -k` is always safe to re-run.
 For schema changes, `db/migrations/` holds numbered migration files
 (e.g., `001_add_commodity_flag.sql`).
 
-### D14 — WSL ↔ CRC connectivity via kubectl + kubeconfig
+### D14 — WSL2 ↔ CRC connectivity via oc port-forward --address 0.0.0.0
 
-CRC runs on Windows. `oc port-forward` from WSL would use the Windows
-`oc.exe`, which binds to Windows localhost — unreachable from WSL.
-Instead, native Linux `kubectl` with the CRC kubeconfig file
-(`/mnt/c/Users/.../kubeconfig`) binds to WSL localhost correctly.
+CRC runs on Windows (Hyper-V). `oc.exe port-forward` from WSL binds
+to Windows `127.0.0.1`, which WSL2's NAT doesn't forward.
+Fix: `--address 0.0.0.0` + use the Windows host IP
+(`/etc/resolv.conf` nameserver, e.g. `172.25.144.1`) as `DATABASE_URL` host.
+
+Alternatively, native Linux `kubectl` with the CRC kubeconfig
+(`/mnt/c/Users/.../kubeconfig`) can bind to WSL localhost directly,
+but requires a separate kubectl binary install.
+
+### D18 — Flavor distance uses weighted Euclidean over 16 dimensions
+
+16 keys: 14 gustative + 2 structural (body, intensity).
+Each sub-distance is normalized [0,1], then combined:
+`d = w_g * d_gustative + w_s * d_structural` (default 0.7/0.3).
+The split lets "body match" be valued differently from "taste match".
+A pure cosine similarity was considered but loses magnitude info
+(a 0-across-the-board profile would cosine-match anything).
+
+### D19 — Substitution uses anti-doppione + tiered thresholds
+
+When suggesting subs for a missing recipe ingredient:
+1. **Anti-doppione**: exclude bottles whose class is already used
+   by another ingredient in the same recipe (no Carpano for Manhattan's
+   Rye slot when Vermouth Rosso is already required).
+2. **Pivot profile**: aggregated from bottles in the same class, or
+   sibling classes if none available.
+3. **Two tiers**: strict (same parent family, threshold 0.25) and
+   loose (cross-family, threshold 0.20). Lower loose threshold
+   because cross-family subs need to be very close to make sense.
+4. **Alt-group handling**: if no member of an OR-group is satisfied,
+   pick the representative (first alphabetically) and annotate.
 
 ---
 
@@ -248,6 +278,8 @@ mix-ml/
 ├── generate_seed_sql.py           # Phase 2: JSON → seed.sql
 ├── seed.sql                       # Generated DDL + INSERTs
 ├── bottles_seed.json              # 42 personal bottles with flavor profiles
+├── scripts/
+│   └── flavor_matrix.py           # Offline: pairwise distance CSV, heatmap, clusters
 ├── db/
 │   ├── seed.sql                   # Copy for deploy
 │   └── migrations/
@@ -267,16 +299,22 @@ mix-ml/
     │   │   ├── classes.py         #   /api/classes (tree + flat)
     │   │   ├── recipes.py         #   /api/recipes (list + detail)
     │   │   ├── bottles.py         #   /api/bottles (CRUD + bulk)
-    │   │   └── cocktails.py       #   /api/cocktails (feasibility)
+    │   │   ├── cocktails.py       #   /api/cocktails (feasibility)
+    │   │   └── flavor.py          #   /api/flavor (distance, similar, trace)
     │   └── services/
-    │       └── feasibility.py     #   can-make-now engine
-    └── tests/                     #   30 tests, schema-isolated
+    │       ├── feasibility.py     #   can-make-now engine
+    │       ├── flavor.py          #   flavor_distance, aggregate_class_profile
+    │       ├── inventory.py       #   get_on_hand_class_ids
+    │       └── substitution.py    #   similar-bottles, substitutions, trace
+    └── tests/                     #   90 tests, schema-isolated
         ├── conftest.py
         ├── test_health.py
         ├── test_classes.py
         ├── test_recipes.py
         ├── test_bottles.py
-        └── test_cocktails.py
+        ├── test_cocktails.py
+        ├── test_flavor.py
+        └── test_substitution.py
 ```
 
 ---
@@ -289,7 +327,8 @@ mix-ml/
 | Ingredient classes | 178 (19 parents + 159 children) |
 | Garnish classes | 10 |
 | Commodity classes | 35 |
-| Recipe ingredients | 424 |
+| Recipe ingredients | 419 (was 424, 5 Luxardo dupes removed) |
 | Personal bottles | 42 |
 | Feasible cocktails | 15 (with 42 bottles + commodities) |
-| Tests | 30 passing |
+| Flavor dimensions | 16 (14 gustative + 2 structural) |
+| Tests | 90 passing |

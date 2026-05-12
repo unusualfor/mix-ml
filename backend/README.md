@@ -8,10 +8,11 @@ Read-only REST API per il database cocktail IBA, basata su FastAPI + SQLAlchemy 
 cd backend
 uv venv && uv pip install -e ".[dev]"
 
-# Port-forward verso il DB su CRC
-oc port-forward svc/postgres 5432:5432 -n cocktail-db &
+# Port-forward verso il DB su CRC (bind 0.0.0.0 per WSL2)
+oc port-forward svc/postgres 5432:5432 -n cocktail-db --address 0.0.0.0 &
 
-export DATABASE_URL="postgresql+psycopg://cocktailuser:<password>@localhost:5432/cocktails"
+# Usa l'IP del Windows host da WSL2
+export DATABASE_URL="postgresql+psycopg://cocktailuser:<password>@$(grep nameserver /etc/resolv.conf | awk '{print $2}'):5432/cocktails"
 uvicorn app.main:app --reload
 ```
 
@@ -27,6 +28,19 @@ L'API è disponibile su `http://localhost:8000`. Docs interattivi: `http://local
 | GET | `/api/recipes` | Lista ricette con filtri `?category=`, `?search=`, `?limit=`, `?offset=` |
 | GET | `/api/recipes/{id}` | Dettaglio ricetta con ingredienti |
 | GET | `/api/recipes/by-name?name=` | Dettaglio ricetta per nome (case-insensitive) |
+| GET | `/api/recipes/{id}/substitutions` | Sostituti per ingredienti mancanti |
+| GET | `/api/bottles` | Lista bottiglie personali |
+| GET | `/api/bottles/{id}` | Dettaglio bottiglia |
+| POST | `/api/bottles` | Crea bottiglia |
+| POST | `/api/bottles/bulk` | Bulk upsert bottiglie |
+| PUT | `/api/bottles/{id}` | Aggiorna bottiglia |
+| DELETE | `/api/bottles/{id}` | Elimina bottiglia |
+| GET | `/api/cocktails/can-make-now` | Lista ricette fattibili con inventory corrente |
+| GET | `/api/cocktails/{id}/feasibility` | Dettaglio fattibilità per ricetta |
+| GET | `/api/cocktails/optimize-next` | Prossima bottiglia che sblocca più ricette |
+| GET | `/api/flavor/distance` | Distanza gustativa tra due bottiglie |
+| GET | `/api/flavor/similar-bottles` | Ranking bottiglie simili a un pivot |
+| GET | `/api/flavor/substitution-trace` | Debug dettagliato logica sostituzione |
 
 ## Test
 
