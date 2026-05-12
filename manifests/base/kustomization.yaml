@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cocktail-db
+
+labels:
+  - pairs:
+      app.kubernetes.io/name: cocktail-db
+      app.kubernetes.io/part-of: cocktail-platform
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - postgres-secret.yaml
+  - postgres-pvc.yaml
+  - postgres-deployment.yaml
+  - postgres-service.yaml
+  - seed-job.yaml
+
+configMapGenerator:
+  - name: postgres-seed
+    files:
+      - seed.sql
+
+generatorOptions:
+  disableNameSuffixHash: true

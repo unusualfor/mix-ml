@@ -1,0 +1,155 @@
+AMOUNT ANOMALIES REPORT
+==================================================
+
+Cases where amount is null, zero, negative, or non-numeric.
+Total anomalies found: 30
+
+  [1] Recipe: Americano
+       Ingredient: A splash of Soda Water
+       amount=null, unit=null
+       Anomaly: null
+
+  [2] Recipe: Aviation
+       Ingredient: Luxardo
+       amount=null, unit=null
+       Anomaly: null
+
+  [3] Recipe: Bloody Mary
+       Ingredient: Tabasco, Celery Salt, Pepper (Up to taste)
+       amount=null, unit=null
+       Anomaly: null
+
+  [4] Recipe: Brandy Crusta
+       Ingredient: Luxardo
+       amount=null, unit=null
+       Anomaly: null
+
+  [5] Recipe: Casino
+       Ingredient: Luxardo
+       amount=null, unit=null
+       Anomaly: null
+
+  [6] Recipe: Champagne Cocktail
+       Ingredient: Grand Marnier (optional)
+       amount=null, unit="drops"
+       Anomaly: null
+
+  [7] Recipe: Clover Club
+       Ingredient: Egg White
+       amount=null, unit="drops"
+       Anomaly: null
+
+  [8] Recipe: Fernandito
+       Ingredient: up with Cola
+       amount=null, unit="top"
+       Anomaly: null
+
+  [9] Recipe: Gin Basil Smash
+       Ingredient: 60ml Gin
+       amount=null, unit=null
+       Anomaly: null
+
+  [10] Recipe: Gin Fizz
+       Ingredient: Splash of Soda Water
+       amount=null, unit=null
+       Anomaly: null
+
+  [11] Recipe: Horse’s Neck
+       Ingredient: Dash of Angostura Bitters (optional)
+       amount=null, unit=null
+       Anomaly: null
+
+  [12] Recipe: Illegal
+       Ingredient: Egg White (Optional)
+       amount=null, unit="drops"
+       Anomaly: null
+
+  [13] Recipe: Last Word
+       Ingredient: Luxardo
+       amount=null, unit=null
+       Anomaly: null
+
+  [14] Recipe: Long Island Iced Tea
+       Ingredient: Cola
+       amount=null, unit="top"
+       Anomaly: null
+
+  [15] Recipe: Martinez
+       Ingredient: Luxardo
+       amount=null, unit=null
+       Anomaly: null
+
+  [16] Recipe: Mojito
+       Ingredient: Soda Water
+       amount=null, unit=null
+       Anomaly: null
+
+  [17] Recipe: New York Sour
+       Ingredient: Egg White
+       amount=null, unit="drops"
+       Anomaly: null
+
+  [18] Recipe: Old Fashioned
+       Ingredient: Angostura Bitters
+       amount=null, unit="dash"
+       Anomaly: null
+
+  [19] Recipe: Old Fashioned
+       Ingredient: Plain Water
+       amount=null, unit="dash"
+       Anomaly: null
+
+  [20] Recipe: Paloma
+       Ingredient: A pinch of Salt
+       amount=null, unit=null
+       Anomaly: null
+
+  [21] Recipe: Penicillin
+       Ingredient: 2-3 quarter size sliced fresh ginger
+       amount=null, unit=null
+       Anomaly: null
+
+  [22] Recipe: Ramos Fizz
+       Ingredient: 30ml Egg white
+       amount=null, unit=null
+       Anomaly: null
+
+  [23] Recipe: Ramos Fizz
+       Ingredient: Soda Water
+       amount=null, unit=null
+       Anomaly: null
+
+  [24] Recipe: Russian Spring Punch
+       Ingredient: up with Sparkling Wine
+       amount=null, unit="top"
+       Anomaly: null
+
+  [25] Recipe: Singapore Sling
+       Ingredient: A dash of Angostura bitters
+       amount=null, unit=null
+       Anomaly: null
+
+  [26] Recipe: South Side
+       Ingredient: Egg white (Optional)
+       amount=null, unit="drops"
+       Anomaly: null
+
+  [27] Recipe: Spritz
+       Ingredient: Splash of Soda water
+       amount=null, unit=null
+       Anomaly: null
+
+  [28] Recipe: Suffering Bastard
+       Ingredient: up Ginger beer
+       amount=null, unit="top"
+       Anomaly: null
+
+  [29] Recipe: Ve.N.To
+       Ingredient: Egg White (Optional)
+       amount=null, unit="drops"
+       Anomaly: null
+
+  [30] Recipe: Whiskey Sour
+       Ingredient: Egg White (Optional)
+       amount=null, unit="drops"
+       Anomaly: null

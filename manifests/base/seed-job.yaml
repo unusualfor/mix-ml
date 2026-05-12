@@ -1,0 +1,74 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-seed
+  namespace: cocktail-db
+  labels:
+    app.kubernetes.io/name: cocktail-db
+    app.kubernetes.io/component: seed
+    app.kubernetes.io/part-of: cocktail-platform
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cocktail-db
+        app.kubernetes.io/component: seed
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: quay.io/sclorg/postgresql-16-c9s:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Postgres to be ready..."
+              SECONDS_WAITED=0
+              until pg_isready -h postgres -p 5432; do
+                sleep 2
+                SECONDS_WAITED=$((SECONDS_WAITED + 2))
+                if [ "$SECONDS_WAITED" -ge 120 ]; then
+                  echo "ERROR: Postgres not ready after 120s, aborting."
+                  exit 1
+                fi
+              done
+              echo "Postgres is ready."
+      containers:
+        - name: seed
+          image: quay.io/sclorg/postgresql-16-c9s:latest
+          env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRESQL_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRESQL_PASSWORD
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Checking if database is already seeded..."
+              COUNT=$(psql -h postgres -U "$POSTGRESQL_USER" -d cocktails \
+                -tAc "SELECT COUNT(*) FROM ingredient_class" 2>/dev/null || echo "0")
+              if [ "$COUNT" -gt 0 ] 2>/dev/null; then
+                echo "DB already seeded ($COUNT classes found), skipping."
+                exit 0
+              fi
+              echo "Applying seed.sql..."
+              psql -h postgres -U "$POSTGRESQL_USER" -d cocktails \
+                -f /seed/seed.sql -v ON_ERROR_STOP=1
+              echo "Seed complete."
+          volumeMounts:
+            - name: seed-sql
+              mountPath: /seed
+              readOnly: true
+      volumes:
+        - name: seed-sql
+          configMap:
+            name: postgres-seed

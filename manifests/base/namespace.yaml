@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cocktail-db
+  labels:
+    app.kubernetes.io/name: cocktail-db
+    app.kubernetes.io/part-of: cocktail-platform

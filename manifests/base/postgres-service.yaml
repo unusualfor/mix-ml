@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: cocktail-db
+  labels:
+    app.kubernetes.io/name: cocktail-db
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: cocktail-platform
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app.kubernetes.io/name: cocktail-db
+    app.kubernetes.io/component: database

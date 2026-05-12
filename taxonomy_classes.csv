@@ -1,0 +1,141 @@
+class_name,is_garnish
+Absinthe,False
+Agave Nectar,False
+Aged Rum,False
+Allspice Dram,False
+Amaretto,False
+Amaro Nonino,False
+Amontillado Sherry,False
+Angostura Aromatic Bitters,False
+Aperol,False
+Apricot Brandy,False
+Bermuda Dark Rum,False
+Blackstrap Rum,False
+Blended Scotch,False
+Bourbon (generic),False
+Brandy,False
+Bénédictine,False
+Cachaça,False
+Calvados,False
+Campari,False
+Cane Sugar,False
+Chamomile Cordial,False
+Champagne,False
+Chartreuse Green,False
+Chartreuse Yellow,False
+Citron Vodka,False
+Cloves,False
+Coconut Cream,False
+Coffee Liqueur (generic),False
+Cognac,False
+Cointreau,False
+Cola,False
+Cranberry Juice,False
+Cream,False
+Crème de Cacao Brown,False
+Crème de Cacao White,False
+Crème de Cassis,False
+Crème de Menthe Green,False
+Crème de Menthe White,False
+Crème de Mûre,False
+Crème de Violette,False
+Cuban Aged Rum,False
+Cuban Aguardiente,False
+Cuban White Rum,False
+Cynar,False
+Demerara Rum,False
+Demerara Syrup,False
+Donn's Mix,False
+Drambuie,False
+Dry White Wine,False
+Egg White,False
+Egg Yolk,False
+Elderflower Cordial,False
+Espresso,False
+Falernum,False
+Fernet (generic),False
+Fernet Branca,False
+Fine Sugar,False
+Frangelico,False
+Fresh Grapefruit Juice,False
+Fresh Lemon Juice,False
+Fresh Lime Juice,False
+Fresh Orange Juice,False
+Fresh Pineapple Juice,False
+Gin (generic),False
+Ginger Ale,False
+Ginger Beer,False
+Grand Marnier,False
+Grappa,False
+Grenadine,False
+Honey Mix,False
+Honey Syrup,False
+Honey-Chamomile Mix,False
+Hot Coffee,False
+Irish Whiskey,False
+Jamaican Aged Rum,False
+Jamaican Dark Rum,False
+Jamaican Overproof Rum,False
+Kahlúa,False
+Lillet Blanc,False
+London Dry Gin,False
+Maraschino,False
+Mezcal,False
+Mezcal Espadín,False
+Old Tom Gin,False
+Orange Bitters,False
+Orange Curaçao,False
+Orange Flower Water,False
+Orgeat,False
+Palo Cortado,False
+Passion Fruit Liqueur,False
+Passion Fruit Purée,False
+Passion Fruit Syrup,False
+Pastis,False
+Peach Brandy,False
+Peach Schnapps,False
+Peychaud's Aromatic Bitters,False
+Pink Grapefruit Soda,False
+Pisco,False
+Prosecco,False
+Puerto Rican Aged Rum,False
+Raspberry Liqueur,False
+Raspberry Syrup,False
+Raw Honey,False
+Red Tawny Port,False
+Red Wine,False
+Rhum Agricole,False
+Rum (generic),False
+Rye Whiskey,False
+Salt,False
+Sangue Morlacco,False
+Seasoning Mix (Bloody Mary),False
+Simple Syrup,False
+Single Malt Scotch (peated),False
+Soda Water,False
+Sparkling Wine (generic),False
+Sugar,False
+Sugar Cane Juice,False
+Sugar Cube,False
+Tequila Blanco,False
+Tomato Juice,False
+Triple Sec,False
+Vanilla Extract,False
+Vanilla Sugar,False
+Vanilla Vodka,False
+Vermouth Dry,False
+Vermouth Rosso,False
+Vodka,False
+Water,False
+White Peach Purée,False
+White Rum,False
+Worcestershire Sauce,False
+Basil Leaves,True
+Chili Pepper Slices,True
+Ginger Slice,True
+Lemon Wheel,True
+Lime Wedges,True
+Mint Leaves,True
+Mint Sprig,True
+Orange Wheel,True
+Pineapple Chunks,True

@@ -1,0 +1,190 @@
+INGREDIENT SIMILARITY CLUSTERS
+==================================================
+
+Threshold: SequenceMatcher ratio >= 0.75 OR token overlap >= 75%
+Clusters found: 40
+
+These are CANDIDATES for manual review — not a decision.
+
+--- Cluster 1 (3 variants) ---
+  "100% Agave Tequila" (1 recipes: Paloma)
+  "Tequila 100% Agave" (1 recipes: Margarita)
+  "Tequila 100% agave" (2 recipes: Grand Margarita; Tommy’s Margarita)
+
+--- Cluster 2 (2 variants) ---
+  "30ml Egg white" (1 recipes: Ramos Fizz)
+  "Egg White" (2 recipes: Clover Club; New York Sour)
+
+--- Cluster 3 (4 variants) ---
+  "A dash of Angostura bitters" (1 recipes: Singapore Sling)
+  "Angostura Bitters" (7 recipes: Manhattan; Old Cuban; Old Fashioned; Suffering Bastard; Three Dots And A Dash; Tipperary; Trinidad Sour)
+  "Angostura bitters" (2 recipes: Champagne Cocktail; Zombie)
+  "Dash of Angostura Bitters (optional)" (1 recipes: Horse’s Neck)
+
+--- Cluster 4 (4 variants) ---
+  "A splash of Soda Water" (1 recipes: Americano)
+  "Soda Water" (3 recipes: John Collins; Mojito; Ramos Fizz)
+  "Splash of Soda Water" (1 recipes: Gin Fizz)
+  "Splash of Soda water" (1 recipes: Spritz)
+
+--- Cluster 5 (2 variants) ---
+  "Absinthe" (3 recipes: Corpse Reviver #2; Remember The Maine; Sazerac)
+  "of Absinthe" (1 recipes: Tuxedo)
+
+--- Cluster 6 (2 variants) ---
+  "Aged Rum" (1 recipes: Old Cuban)
+  "Blended Aged Rum" (1 recipes: Three Dots And A Dash)
+
+--- Cluster 7 (7 variants) ---
+  "Allspice Saint Elizabeth15 ml Fresh Lime Juice" (1 recipes: Three Dots And A Dash)
+  "Fresh Lime" (1 recipes: Hemingway Special)
+  "Fresh Lime Juice" (17 recipes: Canchanchara; Chartreuse Swizzle; Cosmopolitan; Cuba Libre; Daiquiri; Grand Margarita; Iba Tiki; Illegal; Last Word; Mojito; Naked And Famous; Old Cuban; Ramos Fizz; Singapore Sling; Spicy Fifty; Suffering Bastard; Tommy’s Margarita)
+  "Fresh Squeezed Lime Juice" (1 recipes: Mai-Tai)
+  "Fresh lime" (1 recipes: Paloma)
+  "Fresh lime juice" (4 recipes: Don’s Special Daiquiri; Missionary’s Downfall; Moscow Mule; Zombie)
+  "Lime Juice" (1 recipes: Planters Punch)
+
+--- Cluster 8 (2 variants) ---
+  "Amber Jamaican Rum" (1 recipes: Mai-Tai)
+  "Jamaican Rum" (1 recipes: Planters Punch)
+
+--- Cluster 9 (2 variants) ---
+  "Bénédictine" (1 recipes: Vieux Carré)
+  "DOM Bénédictine" (1 recipes: Singapore Sling)
+
+--- Cluster 10 (2 variants) ---
+  "Blended scotch whisky" (1 recipes: Penicillin)
+  "Scotch Whisky" (1 recipes: Rusty Nail)
+
+--- Cluster 11 (3 variants) ---
+  "Bourbon Whiskey" (3 recipes: Mint Julep; Paper Plane; Whiskey Sour)
+  "Bourbon or Rye Whiskey" (2 recipes: Boulevardier; Old Fashioned)
+  "Rye Whiskey or Bourbon" (1 recipes: New York Sour)
+
+--- Cluster 12 (2 variants) ---
+  "Cachaca" (1 recipes: Rabo De Galo)
+  "Cachaça" (1 recipes: Caipirinha)
+
+--- Cluster 13 (2 variants) ---
+  "Creme de Cassis" (1 recipes: Russian Spring Punch)
+  "Crème de Cassis" (1 recipes: Kir)
+
+--- Cluster 14 (2 variants) ---
+  "Crème de Cacao (Brown)" (1 recipes: Alexander)
+  "Crème de Cacao (White)" (1 recipes: Grasshopper)
+
+--- Cluster 15 (2 variants) ---
+  "Crème de Menthe (Green)" (1 recipes: Grasshopper)
+  "White Crème de Menthe" (1 recipes: Stinger)
+
+--- Cluster 16 (2 variants) ---
+  "Demerara sugar syrup" (1 recipes: Jungle Bird)
+  "Sugar Syrup" (7 recipes: Bramble; Espresso Martini; French 75; Gin Basil Smash; Ramos Fizz; Russian Spring Punch; Whiskey Sour)
+
+--- Cluster 17 (3 variants) ---
+  "Dry Gin" (2 recipes: Bee’s Knees; Monkey Gland)
+  "London Dry Gin" (2 recipes: Hanky Panky; Martinez)
+  "London dry Gin" (1 recipes: South Side)
+
+--- Cluster 18 (2 variants) ---
+  "Egg White (Optional)" (3 recipes: Illegal; Ve.N.To; Whiskey Sour)
+  "Egg white (Optional)" (1 recipes: South Side)
+
+--- Cluster 19 (2 variants) ---
+  "Fresh Cream" (2 recipes: Alexander; Grasshopper)
+  "Fresh cream (Chilled)" (1 recipes: Irish Coffee)
+
+--- Cluster 20 (7 variants) ---
+  "Fresh Lemon Juice" (21 recipes: Aviation; Bee’s Knees; Between The Sheets; Bloody Mary; Bramble; Brandy Crusta; Casino; Clover Club; Corpse Reviver #2; French 75; Gin Fizz; John Collins; Paper Plane; Pisco Punch; Pisco Sour; Ramos Fizz; Russian Spring Punch; Sidecar; Trinidad Sour; Whiskey Sour; White Lady)
+  "Fresh Lemon  Juice" (1 recipes: South Side)
+  "Fresh Squeezed Lemon Juice" (1 recipes: Lemon Drop Martini)
+  "Fresh lemon Juice" (1 recipes: Ve.N.To)
+  "Fresh lemon juice" (2 recipes: New York Sour; Penicillin)
+  "Freshly Squeezed Lemon Juice" (1 recipes: Gin Basil Smash)
+  "Lemon juice" (1 recipes: Long Island Iced Tea)
+
+--- Cluster 21 (4 variants) ---
+  "Fresh Orange Juice" (5 recipes: Bee’s Knees; Monkey Gland; Paradise; Sex On The Beach; Tequila Sunrise)
+  "Fresh Orange juice" (1 recipes: Three Dots And A Dash)
+  "Freshly Squeezed Orange Juice" (1 recipes: Garibaldi)
+  "Freshly Squeezed  Orange Juice" (1 recipes: Mimosa)
+
+--- Cluster 22 (2 variants) ---
+  "Fresh Pineapple Juice" (7 recipes: Chartreuse Swizzle; French Martini; Iba Tiki; Mary Pickford; Pina Colada; Pisco Punch; Singapore Sling)
+  "Pineapple juice" (1 recipes: Jungle Bird)
+
+--- Cluster 23 (2 variants) ---
+  "Freshly Squeezed Lime Juice" (1 recipes: Margarita)
+  "Freshly Squeezed Lime juice" (1 recipes: Jungle Bird)
+
+--- Cluster 24 (2 variants) ---
+  "Ginger Ale" (1 recipes: Horse’s Neck)
+  "Ginger Beer" (2 recipes: Dark ‘N’ Stormy; Moscow Mule)
+
+--- Cluster 25 (2 variants) ---
+  "Grand Marnier" (1 recipes: Grand Margarita)
+  "Grand Marnier (optional)" (1 recipes: Champagne Cocktail)
+
+--- Cluster 26 (3 variants) ---
+  "Grenadine Syrup" (3 recipes: Mary Pickford; Singapore Sling; Tequila Sunrise)
+  "Grenadine syrup" (1 recipes: Zombie)
+  "Tablespoon Grenadine Syrup" (1 recipes: Monkey Gland)
+
+--- Cluster 27 (2 variants) ---
+  "Honey Mix" (1 recipes: Missionary’s Downfall)
+  "Honey mix (replace water with chamomile)*" (1 recipes: Ve.N.To)
+
+--- Cluster 28 (3 variants) ---
+  "Honey Syrup" (3 recipes: Bee’s Knees; Don’s Special Daiquiri; Three Dots And A Dash)
+  "Honey syrup" (1 recipes: Penicillin)
+  "Monin Honey Syrup" (1 recipes: Spicy Fifty)
+
+--- Cluster 29 (2 variants) ---
+  "Irish Whiskey" (2 recipes: Irish Coffee; Tipperary)
+  "Rye Whiskey" (4 recipes: Manhattan; Remember The Maine; Trinidad Sour; Vieux Carré)
+
+--- Cluster 30 (3 variants) ---
+  "Jamaica Overproof White Rum" (1 recipes: Illegal)
+  "White Rum" (4 recipes: Between The Sheets; Cuba Libre; Mary Pickford; Pina Colada)
+  "White rum" (2 recipes: Long Island Iced Tea; Missionary’s Downfall)
+
+--- Cluster 31 (2 variants) ---
+  "Mint Leaves" (2 recipes: Missionary’s Downfall; Old Cuban)
+  "Mint leaves" (1 recipes: South Side)
+
+--- Cluster 32 (2 variants) ---
+  "Mint Sprigs" (1 recipes: Mojito)
+  "fresh Mint sprigs" (1 recipes: Mint Julep)
+
+--- Cluster 33 (2 variants) ---
+  "Orgeat Syrup" (1 recipes: Trinidad Sour)
+  "Orgeat Syrup (Almond)" (1 recipes: Mai-Tai)
+
+--- Cluster 34 (3 variants) ---
+  "Passion Fruit Liqueur" (1 recipes: Porn Star Martini)
+  "Passion Fruit Puree" (2 recipes: Iba Tiki; Porn Star Martini)
+  "Passion Fruit Syrup" (1 recipes: Don’s Special Daiquiri)
+
+--- Cluster 35 (2 variants) ---
+  "Ron Profundo Havana Club" (1 recipes: Iba Tiki)
+  "Ron Smoky Havana Club" (1 recipes: Iba Tiki)
+
+--- Cluster 36 (2 variants) ---
+  "Simple Syrup" (8 recipes: Brandy Crusta; Gin Fizz; Illegal; John Collins; Mai-Tai; Old Cuban; Pisco Punch; Pisco Sour)
+  "Simple syrup" (3 recipes: Long Island Iced Tea; New York Sour; South Side)
+
+--- Cluster 37 (2 variants) ---
+  "Sugar Cube" (2 recipes: Old Fashioned; Sazerac)
+  "sugar cube" (1 recipes: Champagne Cocktail)
+
+--- Cluster 38 (2 variants) ---
+  "Superfine Sugar" (1 recipes: Daiquiri)
+  "Superfine Sugar (or granulated)" (1 recipes: Sherry Cobbler)
+
+--- Cluster 39 (2 variants) ---
+  "Sweet Red Vermouth" (7 recipes: Americano; Boulevardier; Hanky Panky; Manhattan; Martinez; Negroni; Tipperary)
+  "Sweet Vermouth" (2 recipes: Remember The Maine; Vieux Carré)
+
+--- Cluster 40 (2 variants) ---
+  "Vanilla Vodka" (1 recipes: Porn Star Martini)
+  "Vodka Vanilla" (1 recipes: Spicy Fifty)
