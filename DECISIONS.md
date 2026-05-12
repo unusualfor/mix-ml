@@ -22,6 +22,7 @@ with a feasibility engine that answers _"what can I make right now?"_.
 | `v0.5b` | 8b – Substitution | `/flavor/similar-bottles`, `/recipes/{id}/substitutions`, `/flavor/substitution-trace` |
 | `v0.6` | 9 – Shopping optimizer | ILP-based multi-step shopping planner (`optimize-shopping`) |
 | — | 10 – Frontend | HTMX + Jinja2 web UI: home, inventory, flavor map, substitutions, shopping planner |
+| — | 11 – GitOps Slice 1 | ArgoCD-driven deployment via Red Hat OpenShift GitOps, manual sync, namespace migration to `mix-ml` |
 
 ---
 
@@ -140,6 +141,23 @@ so that `Fernet Branca` and `Fernet (generic)` are siblings under `Fernet`,
 enabling the substitution engine to prefer Fernet variants over unrelated amari.
 They still appear in the `/feasibility` detail endpoint
 so the UI can display _"you'll also need a lemon wheel"_.
+
+### D10 — GitOps with ArgoCD, manual sync, secrets out-of-band
+
+Deployment moved from manual `oc apply -k` to ArgoCD watching `manifests/overlays/crc/`.
+Key design choices:
+- **Manual sync** (no auto-sync/auto-prune): deliberate for a single-developer CRC setup.
+  Prevents accidental drift reconciliation while iterating on manifests.
+- **Secrets as placeholders in Git**: `postgres-secret.yaml` has `REPLACE_ME` values.
+  Real credentials injected by `scripts/setup-secrets.sh`. ArgoCD `ignoreDifferences`
+  on `/data` and `/stringData` prevents overwriting live secrets with placeholders.
+- **Seed Job excluded from Kustomize resources**: database seeding is manual and infrequent.
+  The Job manifest stays in the repo but is applied explicitly via `oc apply -f`.
+- **Image tags pinned to `v0.1.0`**: ArgoCD works better with immutable tags than `:latest`.
+  `ignoreDifferences` on container image paths allows Tekton (Slice 2) to update tags
+  without ArgoCD showing drift.
+- **Namespace renamed from `cocktail-db` to `mix-ml`**: the namespace now holds all
+  three services (postgres, backend, frontend), not just the database.
 
 ### D5 — Alternative groups model OR-relationships
 

@@ -2,29 +2,30 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: cocktail-db
   labels:
-    app.kubernetes.io/name: cocktail-db
+    app.kubernetes.io/name: postgres
     app.kubernetes.io/component: database
     app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/managed-by: argocd
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/name: cocktail-db
+      app.kubernetes.io/name: postgres
       app.kubernetes.io/component: database
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: cocktail-db
+        app.kubernetes.io/name: postgres
         app.kubernetes.io/component: database
         app.kubernetes.io/part-of: cocktail-platform
     spec:
       containers:
         - name: postgres
-          image: quay.io/sclorg/postgresql-16-c9s:latest
+          image: quay.io/sclorg/postgresql-16-c9s:c9s
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
               protocol: TCP

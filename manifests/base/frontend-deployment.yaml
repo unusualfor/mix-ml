@@ -4,7 +4,9 @@ metadata:
   name: frontend
   labels:
     app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: web-ui
     app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/managed-by: argocd
 spec:
   replicas: 2
   selector:
@@ -14,11 +16,13 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: frontend
+        app.kubernetes.io/component: web-ui
         app.kubernetes.io/part-of: cocktail-platform
     spec:
       containers:
         - name: frontend
-          image: mix-ml-frontend:latest
+          image: ghcr.io/unusualfor/mix-ml-frontend:v0.1.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               protocol: TCP

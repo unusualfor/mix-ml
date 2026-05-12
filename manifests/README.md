@@ -1,82 +1,63 @@
-# Cocktail DB — Deploy on OpenShift Local (CRC)
+# Mix-ML — Kubernetes Manifests
 
-PostgreSQL 16 deployment with automatic seeding of 102 IBA recipes on a single-node OpenShift Local cluster.
-
-## Prerequisites
-
-- OpenShift (e.g. OpenShift Local / CRC) running with valid login (`oc whoami` must work)
-- `oc` CLI ≥ 4.14
-- `kustomize` (built into `oc` via `oc apply -k`)
+Kustomize manifests for deploying mix-ml on OpenShift Local (CRC), managed by ArgoCD.
 
 ## Structure
 
 ```
 manifests/
+├── operators/
+│   ├── kustomization.yaml
+│   ├── openshift-gitops-subscription.yaml    # Red Hat OpenShift GitOps
+│   └── openshift-pipelines-subscription.yaml # Red Hat OpenShift Pipelines
+├── argocd/
+│   ├── kustomization.yaml
+│   └── mix-ml-app.yaml                      # ArgoCD Application CR
 ├── base/
-│   ├── kustomization.yaml            # configMapGenerator for seed.sql
-│   ├── namespace.yaml
-│   ├── postgres-secret.yaml          # ⚠ placeholder credentials
-│   ├── postgres-pvc.yaml             # 2Gi RWO
-│   ├── postgres-deployment.yaml      # SCL postgresql-16-c9s
-│   ├── postgres-service.yaml         # ClusterIP :5432
-│   ├── seed-job.yaml                 # Idempotent seed job
-│   ├── frontend-deployment.yaml      # Frontend app (2 replicas)
-│   ├── frontend-service.yaml         # ClusterIP :8080
-│   └── frontend-route.yaml           # OpenShift Route with TLS edge
+│   ├── kustomization.yaml
+│   ├── namespace.yaml                        # mix-ml namespace
+│   ├── postgres-secret.yaml                  # ⚠ placeholder (real values via setup-secrets.sh)
+│   ├── postgres-pvc.yaml                     # 2Gi RWO
+│   ├── postgres-deployment.yaml              # SCL postgresql-16-c9s
+│   ├── postgres-service.yaml                 # ClusterIP :5432
+│   ├── backend-deployment.yaml               # FastAPI backend (ghcr.io)
+│   ├── backend-service.yaml                  # ClusterIP :8080
+│   ├── frontend-deployment.yaml              # HTMX frontend (ghcr.io)
+│   ├── frontend-service.yaml                 # ClusterIP :8080
+│   ├── frontend-route.yaml                   # OpenShift Route with TLS edge
+│   ├── seed-job.yaml                         # Manual seed job (not in kustomization)
+│   └── seed.sql                              # Database seed data
 └── overlays/
     └── crc/
         ├── kustomization.yaml
         └── patches/
-            ├── resources.yaml        # 100m-500m CPU, 256Mi-512Mi RAM (postgres)
-            └── frontend-resources.yaml # Reduced resources for frontend
+            ├── resources.yaml                # Postgres resource limits for CRC
+            ├── backend-resources.yaml        # Backend resource limits for CRC
+            └── frontend-resources.yaml       # Frontend resource limits for CRC
 ```
 
-## Deploy
+## GitOps Flow
 
-### 1. Generate real credentials
+ArgoCD watches `manifests/overlays/crc/` on the `main` branch.
 
-Edit `manifests/base/postgres-secret.yaml` and replace the placeholders:
+1. Edit manifests → commit → push to `main`
+2. ArgoCD detects changes (click "Refresh")
+3. Click "Sync" to apply to cluster
+4. ArgoCD reconciles desired state with live state
 
-```bash
-# Generate secure passwords
-openssl rand -base64 24   # → POSTGRESQL_PASSWORD
-openssl rand -base64 24   # → POSTGRESQL_ADMIN_PASSWORD
-```
+**Seed job** is intentionally excluded from Kustomize resources.
+It is applied manually when needed: `oc apply -f manifests/base/seed-job.yaml -n mix-ml`.
 
-**Do not commit real credentials to the repo.** For non-demo environments use SealedSecrets or ExternalSecrets.
+**Secrets** are placeholders in Git. Real values injected by `scripts/setup-secrets.sh`.
+ArgoCD `ignoreDifferences` prevents overwriting live secrets with placeholders.
 
-### 2. Apply manifests
+## Bootstrap
 
-```bash
-oc apply -k manifests/overlays/crc/
-```
-
-This creates:
-- Namespace `cocktail-db`
-- Secret with Postgres credentials
-- 2Gi PVC
-- Postgres Deployment (1 replica, Recreate strategy)
-- ClusterIP Service on port 5432
-- ConfigMap `postgres-seed` generated from `db/seed.sql`
-- Job `postgres-seed` that applies the schema + data
-- Frontend Deployment, Service, and Route
-
-### 3. Wait for seed
+See root README "Deployment & GitOps" section, or run:
 
 ```bash
-oc wait --for=condition=complete job/postgres-seed -n cocktail-db --timeout=180s
-```
-
-### 4. Verify
-
-```bash
-# Check tables
-oc exec deploy/postgres -n cocktail-db -- \
-  psql -U cocktailuser -d cocktails -c "\dt"
-
-# Count records
-oc exec deploy/postgres -n cocktail-db -- \
-  psql -U cocktailuser -d cocktails -c "SELECT 'classes', COUNT(*) FROM ingredient_class UNION ALL SELECT 'recipes', COUNT(*) FROM recipe UNION ALL SELECT 'ingredients', COUNT(*) FROM recipe_ingredient;"
+bash scripts/setup-secrets.sh     # secrets first
+bash scripts/bootstrap-gitops.sh  # operators + ArgoCD app
 ```
 
 ## Troubleshooting
@@ -84,46 +65,25 @@ oc exec deploy/postgres -n cocktail-db -- \
 ### Connect via port-forward
 
 ```bash
-oc port-forward svc/postgres 5432:5432 -n cocktail-db
-# In another terminal:
+oc port-forward svc/postgres 5432:5432 -n mix-ml
 psql -h localhost -U cocktailuser -d cocktails
 ```
 
-### Seed Job logs
+### Logs
 
 ```bash
-# Init container (wait-for-postgres)
-oc logs job/postgres-seed -n cocktail-db -c wait-for-postgres
-
-# Main container (seed)
-oc logs job/postgres-seed -n cocktail-db -c seed
-```
-
-### Postgres logs
-
-```bash
-oc logs deploy/postgres -n cocktail-db
+oc logs deploy/postgres -n mix-ml
+oc logs deploy/backend -n mix-ml
+oc logs deploy/frontend -n mix-ml
+oc logs job/postgres-seed -n mix-ml -c seed
 ```
 
 ### Full reset
 
-To redo everything from scratch (schema + data):
-
 ```bash
-oc delete job postgres-seed -n cocktail-db --ignore-not-found
-oc delete pvc postgres-data -n cocktail-db
-oc apply -k manifests/overlays/crc/
-oc wait --for=condition=complete job/postgres-seed -n cocktail-db --timeout=180s
+oc delete job postgres-seed -n mix-ml --ignore-not-found
+oc delete pvc postgres-data -n mix-ml
+# Then sync via ArgoCD to recreate PVC + deployment
+# Re-apply seed job manually
+oc apply -f manifests/base/seed-job.yaml -n mix-ml
 ```
-
-### Job fails with "already seeded"
-
-Expected behavior: the Job checks if `ingredient_class` has rows. If yes, it exits successfully without re-running the seed. To force a re-seed, delete the PVC (see full reset above).
-
-### Job fails with SQL error
-
-```bash
-oc logs job/postgres-seed -n cocktail-db -c seed
-```
-
-The seed uses `ON_ERROR_STOP=1`: the first SQL error stops execution. Check `db/seed.sql` for syntax errors, then do a full reset.

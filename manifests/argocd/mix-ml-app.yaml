@@ -1,0 +1,40 @@
+# ArgoCD Application CR for mix-ml
+#
+# ignoreDifferences: Secret data is managed out-of-band by scripts/setup-secrets.sh.
+# ArgoCD must not overwrite the live Secret with placeholder values from Git.
+# The seed Job is excluded from pruning so manual re-runs are not deleted.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mix-ml
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: cocktail-platform
+spec:
+  project: default
+  source:
+    # Replace <username> with your GitHub username
+    repoURL: https://github.com/unusualfor/mix-ml.git
+    targetRevision: main
+    path: manifests/overlays/crc
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mix-ml
+  # Manual sync — click "Sync" in ArgoCD UI or run: argocd app sync mix-ml
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # Secret data managed by scripts/setup-secrets.sh, not Git
+    - group: ""
+      kind: Secret
+      name: postgres-credentials
+      jsonPointers:
+        - /data
+        - /stringData
+    # Ignore image tag changes (will be updated by Tekton in Slice 2)
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/template/spec/containers/0/image
