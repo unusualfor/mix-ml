@@ -20,6 +20,8 @@ with a feasibility engine that answers _"what can I make right now?"_.
 | `v0.4` | 7 – Optimizer | `optimize-next` endpoint, assumed-available wines |
 | `v0.5a` | 8a – Flavor distance | `flavor_distance` metric, `/flavor/distance` endpoint, offline heatmap+clustering script |
 | `v0.5b` | 8b – Substitution | `/flavor/similar-bottles`, `/recipes/{id}/substitutions`, `/flavor/substitution-trace` |
+| `v0.6` | 9 – Shopping optimizer | ILP-based multi-step shopping planner (`optimize-shopping`) |
+| — | 10 – Frontend | HTMX + Jinja2 web UI: home, inventory, flavor map, substitutions, shopping planner |
 
 ---
 
@@ -98,6 +100,44 @@ just because you didn't register a bottle of sparkling water.
 
 Every garnish class has `is_garnish = TRUE`.
 The feasibility engine skips them entirely.
+
+### D5 — Substitution engine always computes alternatives, even for satisfied ingredients
+
+Initially, satisfied ingredients (where the user already owns a matching bottle)
+were skipped entirely. This meant feasible cocktails showed no substitution data.
+Refactored so every ingredient gets full pivot-profile computation and distance ranking,
+with the already-owned bottle excluded from the candidate list. This enables the UI
+to show "you have X, but you could also use Y" — useful for experimentation.
+
+### D6 — Frontend is a separate service, not embedded in the backend
+
+The web UI is a standalone FastAPI app (port 3000) that calls the backend API
+via httpx. This keeps the backend a pure JSON API and lets the frontend evolve
+independently — different deployment lifecycle, scaling, and dependencies
+(scipy/numpy for the flavor map vs. none needed on the backend).
+
+### D7 — Flavor map uses frontend-side computation
+
+The flavor distance matrix and hierarchical clustering are computed in the frontend
+service at startup, not via a backend endpoint. Rationale: the matrix is O(n²) and
+only needed for the SVG heatmap visualization. Computing it frontend-side avoids
+adding a heavy endpoint to the backend, keeps the response instant (pre-computed
+and cached on `app.state`), and the frontend already needs scipy for clustering.
+
+### D8 — SVG heatmap is server-rendered, not client-side JS
+
+The flavor map is a plain SVG string built in Python — no D3, no Chart.js.
+This keeps the zero-JS philosophy (HTMX-only), avoids bundler complexity,
+and makes the heatmap work in any browser. Trade-off: no interactive zoom/pan,
+but native `<title>` tooltips provide hover details, and row/column labels
+are clickable links to the inventory.
+
+### D9 — Taxonomy subcategories for Fernet and Coffee Liqueur
+
+Originally flat siblings under Amaro and Liqueur respectively.
+Added intermediate parent nodes (`Fernet` under `Amaro`, `Coffee Liqueur` under `Liqueur`)
+so that `Fernet Branca` and `Fernet (generic)` are siblings under `Fernet`,
+enabling the substitution engine to prefer Fernet variants over unrelated amari.
 They still appear in the `/feasibility` detail endpoint
 so the UI can display _"you'll also need a lemon wheel"_.
 

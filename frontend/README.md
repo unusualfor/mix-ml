@@ -1,6 +1,6 @@
-# mix-ml Frontend
+# Mix/ML Frontend
 
-Web UI for the mix-ml cocktail feasibility engine.  
+Web UI for the mix-ml cocktail intelligence platform.
 Separate HTTP service that calls the backend API and renders HTML via Jinja2 + HTMX.
 
 ## Stack
@@ -9,7 +9,17 @@ Separate HTTP service that calls the backend API and renders HTML via Jinja2 + H
 - **HTMX 1.9** for client-side interactivity (CDN, no build step)
 - **Tailwind CSS** via CDN (dev); precompiled `static/css/app.css` in prod
 - **httpx** for backend HTTP calls
+- **scipy + numpy** for hierarchical clustering (flavor map)
 - No Node, no bundler, no npm
+
+## Features
+
+- **Home** — cocktail grid with feasibility badges, category filtering via HTMX
+- **Cocktail detail** — recipe breakdown with profile radar
+- **Inventory** — bottle cards with expandable flavor profiles, grouped by family
+- **Flavor map** — SVG heatmap of pairwise flavor distances, hierarchical clustering, natural clusters, outliers, inter-cluster pairs
+- **Substitutions** — per-cocktail ingredient analysis with strict/loose alternatives, preview modal with status badges
+- **Shopping planner** — ILP-based multi-step purchase optimizer
 
 ## Local Development
 
@@ -35,7 +45,7 @@ BACKEND_URL=http://172.25.144.1:8080 uvicorn app.main:app --port 3000 --reload
 
 ```bash
 cd frontend && source .venv/bin/activate
-python -m pytest tests/ -v
+python -m pytest tests/ -v   # 80 tests
 ```
 
 Tests mock the backend client — no live backend needed.
@@ -65,11 +75,29 @@ oc apply -k manifests/overlays/crc/
 |----------|---------|-------------|
 | `BACKEND_URL` | `http://localhost:8080` | Base URL of the backend API |
 
+## Startup Behavior
+
+On startup, the frontend waits up to 30s for the backend health check,
+then fetches all bottles with flavor profiles, computes the N×N flavor
+distance matrix, runs hierarchical clustering (scipy average linkage),
+renders the SVG heatmap, and caches it on `app.state`. This runs once
+and is served instantly on subsequent requests.
+
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` | Home page — cocktails you can make now |
-| GET | `/cocktails/can-make-now?category=<filter>` | Partial list (HTMX) or full page |
-| GET | `/healthz` | Health check (always 200) |
-| GET | `/readyz` | Readiness (pings backend `/healthz`) |
+| GET | `/` | Home — cocktails you can make now |
+| GET | `/cocktails/can-make-now` | Cocktail list (HTMX partial or full page) |
+| GET | `/cocktails/{id}` | Cocktail detail page |
+| GET | `/inventory` | Bottle inventory (Collection tab) |
+| GET | `/inventory/{id}/profile` | Expanded bottle card (HTMX partial) |
+| GET | `/inventory/{id}/collapse` | Collapsed bottle card (HTMX partial) |
+| GET | `/inventory/flavor-map` | Flavor distance matrix (Flavor map tab) |
+| GET | `/inventory/flavor-map/regenerate` | Dev-only: recompute matrix |
+| GET | `/substitutions` | Substitution explorer |
+| GET | `/substitutions/preview` | Recipe preview modal (HTMX partial) |
+| GET | `/shopping` | Shopping planner |
+| GET | `/shopping/optimize` | Run shopping optimization (HTMX partial) |
+| GET | `/healthz` | Liveness probe (always 200) |
+| GET | `/readyz` | Readiness probe (pings backend `/healthz`) |
