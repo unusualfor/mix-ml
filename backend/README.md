@@ -60,6 +60,31 @@ distinguishing brut vs demi-sec), the user would need to either:
 "Demi-Sec Champagne") with the parent class remaining commodity for
 backward compatibility.
 
+## Flavor Distance
+
+La metrica `flavor_distance` calcola una distanza euclidea pesata tra
+due `flavor_profile` a 16 dimensioni (valori 0-5). Lo spazio è
+suddiviso in:
+
+- **Gustativo** (14 dim): sweet, bitter, sour, citrusy, fruity,
+  herbal, floral, spicy, smoky, vanilla, woody, minty, earthy, umami
+- **Strutturale** (2 dim): body, intensity
+
+Ogni sotto-distanza è normalizzata in [0, 1], poi combinata:
+
+$$d = w_g \cdot d_{\text{gustativo}} + w_s \cdot d_{\text{strutturale}}$$
+
+Pesi default: $w_g = 0.7$, $w_s = 0.3$ ($w_g + w_s = 1$).
+
+### Endpoint diagnostico
+
+| Metodo | Path | Descrizione |
+|--------|------|-------------|
+| GET | `/api/flavor/distance?bottle_a=<id>&bottle_b=<id>` | Breakdown distanza tra due bottle |
+
+Parametri opzionali: `gustative_weight`, `structural_weight`.
+Errori: 404 se una bottle non esiste, 422 se i pesi non sommano a 1.
+
 ## Build immagine OCI
 
 ```bash

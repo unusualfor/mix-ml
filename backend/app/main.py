@@ -5,7 +5,7 @@ import sys
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import bottles, classes, cocktails, health, recipes
+from app.routers import bottles, classes, cocktails, flavor, health, recipes
 
 
 class _JsonFormatter(logging.Formatter):
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
     application.include_router(recipes.router, prefix="/api")
     application.include_router(bottles.router, prefix="/api")
     application.include_router(cocktails.router, prefix="/api")
+    application.include_router(flavor.router, prefix="/api")
     return application
 
 
