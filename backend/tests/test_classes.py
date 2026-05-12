@@ -3,8 +3,8 @@ def test_classes_returns_hierarchical_tree(client):
     assert resp.status_code == 200
     data = resp.json()
 
-    # Three roots: TestGarnish, TestMixer, TestSpirit
-    assert len(data) == 3
+    # Five roots: TestAperitif, TestGarnish, TestMixer, TestSpirit, TestWine
+    assert len(data) == 5
     roots = {r["name"]: r for r in data}
 
     spirit = roots["TestSpirit"]
@@ -13,7 +13,7 @@ def test_classes_returns_hierarchical_tree(client):
     assert len(spirit["children"]) == 3
 
     child_names = sorted(c["name"] for c in spirit["children"])
-    assert child_names == ["TestBitters", "TestGin", "TestVodka"]
+    assert child_names == ["TestBitters", "TestGinFamily", "TestVodkaFamily"]
 
     garnish = roots["TestGarnish"]
     assert garnish["is_garnish"] is True
@@ -27,18 +27,21 @@ def test_classes_returns_hierarchical_tree(client):
     for child in mixer["children"]:
         assert child["is_commodity"] is True
 
+    aperitif = roots["TestAperitif"]
+    assert len(aperitif["children"]) == 2
+
 
 def test_classes_flat_returns_flat_list(client):
     resp = client.get("/api/classes?flat=true")
     assert resp.status_code == 200
     data = resp.json()
 
-    assert len(data) == 9
+    assert len(data) == 20
 
     parents = [c for c in data if c["parent_id"] is None]
     children = [c for c in data if c["parent_id"] is not None]
 
-    assert len(parents) == 3
+    assert len(parents) == 5
     parent_names = sorted(p["name"] for p in parents)
-    assert parent_names == ["TestGarnish", "TestMixer", "TestSpirit"]
-    assert len(children) == 6
+    assert parent_names == ["TestAperitif", "TestGarnish", "TestMixer", "TestSpirit", "TestWine"]
+    assert len(children) == 15

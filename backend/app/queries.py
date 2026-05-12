@@ -170,3 +170,33 @@ ON_HAND_BOTTLES_FOR_SIBLINGS = text("""
 ALL_RECIPES_BRIEF = text("""
     SELECT id, name, iba_category, glass FROM recipe ORDER BY name
 """)
+
+# ---------------------------------------------------------------------------
+# optimizer (optimize-next)
+# ---------------------------------------------------------------------------
+
+CANDIDATE_CLASSES = text("""
+    SELECT ic.id, ic.name, ic.parent_id, p.name AS parent_family
+    FROM ingredient_class ic
+    LEFT JOIN ingredient_class p ON p.id = ic.parent_id
+    WHERE ic.parent_id IS NOT NULL
+      AND ic.is_commodity = FALSE
+      AND ic.is_garnish = FALSE
+      AND (
+          -- Rule 1: class appears directly in a recipe ingredient
+          EXISTS (
+              SELECT 1 FROM recipe_ingredient ri WHERE ri.class_id = ic.id
+          )
+          OR
+          -- Rule 2: class is sibling of a "(generic)" class used in a recipe
+          -- (buying this specific class satisfies the generic requirement)
+          EXISTS (
+              SELECT 1
+              FROM ingredient_class gen
+              JOIN recipe_ingredient ri ON ri.class_id = gen.id
+              WHERE gen.parent_id = ic.parent_id
+                AND gen.name LIKE '%% (generic)'
+          )
+      )
+    ORDER BY ic.name
+""")

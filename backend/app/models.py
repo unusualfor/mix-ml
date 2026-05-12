@@ -203,3 +203,42 @@ class FeasibilityResponse(BaseModel):
     recipe: RecipeListItem
     can_make: bool
     ingredients: list[FeasibilityIngredient]
+
+
+# -- optimize-next ----------------------------------------------------------
+
+class OptimizeCurrentState(BaseModel):
+    on_hand_class_ids: list[int]
+    currently_feasible: int
+    currently_feasible_recipes: list[str]
+
+
+class UnlockedRecipe(BaseModel):
+    id: int
+    name: str
+
+
+class EquivalentAlternative(BaseModel):
+    class_id: int
+    class_name: str
+    parent_family: str | None
+
+
+class RankedCandidate(BaseModel):
+    class_id: int
+    class_name: str
+    parent_family: str | None
+    delta: int
+    unlocked_recipes: list[UnlockedRecipe]
+    equivalent_alternatives: list[EquivalentAlternative] = []
+
+
+class OptimizeComputation(BaseModel):
+    candidates_evaluated: int
+    ms: int
+
+
+class OptimizeNextResponse(BaseModel):
+    current_state: OptimizeCurrentState
+    ranked_candidates: list[RankedCandidate]
+    computation: OptimizeComputation

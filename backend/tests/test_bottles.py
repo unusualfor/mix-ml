@@ -28,7 +28,7 @@ def test_create_bottle_with_valid_class(client):
     assert resp.status_code == 201
     data = resp.json()
     assert data["class_name"] == "TestGin"
-    assert data["family_name"] == "TestSpirit"
+    assert data["family_name"] == "TestGinFamily"
     assert data["brand"] == "CreateTest Gin"
     assert data["abv"] == 40.0
     assert data["on_hand"] is True
@@ -86,7 +86,7 @@ def test_list_bottles_filters_by_family(client):
     r1 = _create_bottle(client, brand="FamTest", label="FT1")
     id1 = r1.json()["id"]
 
-    resp = client.get("/api/bottles?family=TestSpirit")
+    resp = client.get("/api/bottles?family=TestGinFamily")
     assert resp.status_code == 200
     ids = {b["id"] for b in resp.json()["items"]}
     assert id1 in ids

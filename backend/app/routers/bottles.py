@@ -11,8 +11,15 @@ from app.models import (
     BottleOut,
     BottlePatch,
     BulkBottleResult,
+    EquivalentAlternative,
+    OptimizeComputation,
+    OptimizeCurrentState,
+    OptimizeNextResponse,
+    RankedCandidate,
+    UnlockedRecipe,
 )
 from app import queries
+from app.services.optimizer import compute_optimize_next
 
 router = APIRouter(tags=["bottles"])
 
@@ -69,6 +76,47 @@ def list_bottles(
     return BottleListResponse(
         total=total,
         items=[_bottle_out(r) for r in rows],
+    )
+
+
+@router.get("/bottles/optimize-next", response_model=OptimizeNextResponse)
+def optimize_next(
+    top: int = Query(10, ge=1, le=50),
+    include_zero: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    result = compute_optimize_next(db, top=top, include_zero=include_zero)
+    return OptimizeNextResponse(
+        current_state=OptimizeCurrentState(
+            on_hand_class_ids=result.on_hand_class_ids,
+            currently_feasible=result.currently_feasible,
+            currently_feasible_recipes=result.currently_feasible_names,
+        ),
+        ranked_candidates=[
+            RankedCandidate(
+                class_id=c.class_id,
+                class_name=c.class_name,
+                parent_family=c.parent_family,
+                delta=c.delta,
+                unlocked_recipes=[
+                    UnlockedRecipe(id=rid, name=result.recipe_names[rid])
+                    for rid in c.unlocked_recipe_ids
+                ],
+                equivalent_alternatives=[
+                    EquivalentAlternative(
+                        class_id=a.class_id,
+                        class_name=a.class_name,
+                        parent_family=a.parent_family,
+                    )
+                    for a in c.equivalent_alternatives
+                ],
+            )
+            for c in result.candidates
+        ],
+        computation=OptimizeComputation(
+            candidates_evaluated=result.candidates_evaluated,
+            ms=result.elapsed_ms,
+        ),
     )
 
 

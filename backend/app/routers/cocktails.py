@@ -19,7 +19,6 @@ from app.services.feasibility import (
     compute_feasibility,
     compute_single_recipe_feasibility,
     _on_hand_class_ids_from_db,
-    _build_class_hierarchy,
 )
 
 router = APIRouter(tags=["cocktails"])
@@ -102,7 +101,6 @@ def recipe_feasibility(recipe_id: int, db: Session = Depends(get_db)):
 
     recipe_data = dict(recipe_row)
     on_hand = _on_hand_class_ids_from_db(db)
-    hierarchy = _build_class_hierarchy(db)
 
     result = compute_single_recipe_feasibility(db, recipe_id, on_hand)
 
@@ -114,16 +112,9 @@ def recipe_feasibility(recipe_id: int, db: Session = Depends(get_db)):
     ingredients: list[FeasibilityIngredient] = []
     for ing in ing_rows:
         class_id = ing["class_id"]
-        class_name = ing["class_name"]
-        # For generic classes, find bottles from any sibling class
-        if class_id in hierarchy["generic_ids"]:
-            bottles = db.execute(
-                queries.ON_HAND_BOTTLES_FOR_SIBLINGS, {"class_id": class_id},
-            ).mappings().all()
-        else:
-            bottles = db.execute(
-                queries.ON_HAND_BOTTLES_FOR_CLASS, {"class_id": class_id},
-            ).mappings().all()
+        bottles = db.execute(
+            queries.ON_HAND_BOTTLES_FOR_CLASS, {"class_id": class_id},
+        ).mappings().all()
         ingredients.append(FeasibilityIngredient(
             class_name=ing["class_name"],
             satisfied_by_bottles=[SatisfyingBottle(**dict(b)) for b in bottles],

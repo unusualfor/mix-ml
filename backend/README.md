@@ -38,6 +38,28 @@ pytest tests/ -v
 
 I test creano uno schema temporaneo `test_cocktail`, inseriscono dati minimi e lo droppano a fine sessione.
 
+## Assumed-Available Ingredients
+
+The `is_commodity` flag on `ingredient_class` marks ingredients that
+the system assumes are always available without requiring them to be
+tracked as `bottle` entries. This includes two semantic categories
+sharing the same flag for implementation simplicity:
+
+1. **True commodities**: low-cost consumables typically present in
+   any kitchen (fresh citrus juices, soda water, sugar, eggs, cream,
+   syrups preparable in 2 minutes).
+2. **Assumed-available alcoholics**: items the home bar owner
+   considers always at hand for hosting purposes, even though they
+   are bottled spirits/wines with non-trivial cost (Champagne,
+   Prosecco, Red Wine, Dry White Wine).
+
+To track Champagne or Prosecco as actual inventoried bottles (e.g.
+distinguishing brut vs demi-sec), the user would need to either:
+(a) re-flag the class as non-commodity via SQL, or
+(b) introduce a more granular class (e.g. "Brut Champagne",
+"Demi-Sec Champagne") with the parent class remaining commodity for
+backward compatibility.
+
 ## Build immagine OCI
 
 ```bash

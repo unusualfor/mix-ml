@@ -153,10 +153,13 @@ INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES 
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Red Tawny Port', (SELECT id FROM ingredient_class WHERE name = 'Wine-Based Aperitif'), FALSE, FALSE);
 
 -- Wine
-INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Dry White Wine', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, FALSE);
-INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Red Wine', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, FALSE);
-INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Champagne', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, FALSE);
-INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Prosecco', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, FALSE);
+-- Dry White Wine, Red Wine, Champagne, Prosecco: is_commodity=TRUE
+-- (assumed always available in the home bar; see backend README
+-- § "Assumed-Available Ingredients" for the dual-meaning docs)
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Dry White Wine', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, TRUE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Red Wine', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, TRUE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Champagne', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, TRUE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Prosecco', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, TRUE);
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Sparkling Wine (generic)', (SELECT id FROM ingredient_class WHERE name = 'Wine'), FALSE, FALSE);
 
 -- Bitter Italiano

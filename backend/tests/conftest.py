@@ -54,16 +54,40 @@ CREATE TABLE recipe_ingredient (
 """
 
 _SEED = """
--- 5 classes: 1 parent + 2 leaf children + 1 garnish parent + 1 garnish child
+-- Realistic 3-level hierarchy: TestSpirit → family → leaf
 INSERT INTO ingredient_class (name, is_garnish)
     VALUES ('TestSpirit', FALSE);
+-- Sub-families under TestSpirit
 INSERT INTO ingredient_class (name, parent_id, is_garnish)
-    VALUES ('TestGin',
+    VALUES ('TestGinFamily',
             (SELECT id FROM ingredient_class WHERE name = 'TestSpirit'),
             FALSE);
 INSERT INTO ingredient_class (name, parent_id, is_garnish)
-    VALUES ('TestVodka',
+    VALUES ('TestVodkaFamily',
             (SELECT id FROM ingredient_class WHERE name = 'TestSpirit'),
+            FALSE);
+-- Gin leaf classes under TestGinFamily
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestGin',
+            (SELECT id FROM ingredient_class WHERE name = 'TestGinFamily'),
+            FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestGin (generic)',
+            (SELECT id FROM ingredient_class WHERE name = 'TestGinFamily'),
+            FALSE);
+-- A second specific gin (no direct recipe references, only via wildcard)
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestLondonDryGin',
+            (SELECT id FROM ingredient_class WHERE name = 'TestGinFamily'),
+            FALSE);
+-- Vodka leaf classes under TestVodkaFamily
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestVodka',
+            (SELECT id FROM ingredient_class WHERE name = 'TestVodkaFamily'),
+            FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestVodka (generic)',
+            (SELECT id FROM ingredient_class WHERE name = 'TestVodkaFamily'),
             FALSE);
 INSERT INTO ingredient_class (name, is_garnish)
     VALUES ('TestGarnish', TRUE);
@@ -71,7 +95,7 @@ INSERT INTO ingredient_class (name, parent_id, is_garnish)
     VALUES ('TestLemonWheel',
             (SELECT id FROM ingredient_class WHERE name = 'TestGarnish'),
             TRUE);
--- extra leaf for "optional" ingredient
+-- extra leaf directly under TestSpirit (no family grouping)
 INSERT INTO ingredient_class (name, parent_id, is_garnish)
     VALUES ('TestBitters',
             (SELECT id FROM ingredient_class WHERE name = 'TestSpirit'),
@@ -133,6 +157,19 @@ INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity)
             (SELECT id FROM ingredient_class WHERE name = 'TestMixer'),
             FALSE, TRUE);
 
+-- Assumed-available wines (is_commodity=TRUE even though they are alcoholic;
+-- see backend README § "Assumed-Available Ingredients")
+INSERT INTO ingredient_class (name, is_garnish, is_commodity)
+    VALUES ('TestWine', FALSE, FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity)
+    VALUES ('TestChampagne',
+            (SELECT id FROM ingredient_class WHERE name = 'TestWine'),
+            FALSE, TRUE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity)
+    VALUES ('TestProsecco',
+            (SELECT id FROM ingredient_class WHERE name = 'TestWine'),
+            FALSE, TRUE);
+
 -- Recipe that needs spirit + commodity (e.g., a "Test Spritz")
 INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
     VALUES ('Test Spritz', 'contemporary', 'Build over ice',
@@ -164,6 +201,150 @@ INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
     VALUES ((SELECT id FROM recipe WHERE name = 'Test Juice Mix'),
             (SELECT id FROM ingredient_class WHERE name = 'TestOrangeJuice'),
             60, 'ml', FALSE, FALSE, 'Orange Juice');
+
+-- Additional classes for optimizer testing
+INSERT INTO ingredient_class (name, is_garnish)
+    VALUES ('TestAperitif', FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestCampari',
+            (SELECT id FROM ingredient_class WHERE name = 'TestAperitif'),
+            FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish)
+    VALUES ('TestAperol',
+            (SELECT id FROM ingredient_class WHERE name = 'TestAperitif'),
+            FALSE);
+
+-- Test Americano: TestCampari + TestSodaWater (commodity)
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Americano', 'unforgettable', 'Build over ice',
+            'old fashioned', NULL, 'https://example.com/americano');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Americano'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestCampari'),
+            30, 'ml', FALSE, FALSE, 'Campari');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Americano'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestSodaWater'),
+            90, 'ml', FALSE, FALSE, 'Soda Water');
+
+-- Test Garibaldi: TestCampari + TestOrangeJuice (commodity)
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Garibaldi', 'contemporary', 'Stir',
+            'highball', NULL, 'https://example.com/garibaldi');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Garibaldi'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestCampari'),
+            45, 'ml', FALSE, FALSE, 'Campari');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Garibaldi'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestOrangeJuice'),
+            90, 'ml', FALSE, FALSE, 'Orange Juice');
+
+-- Test Boulevardier: TestGin OR TestVodka (alt_group 1) + TestCampari
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Boulevardier', 'unforgettable', 'Stir and strain',
+            'old fashioned', NULL, 'https://example.com/boulevardier');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, alternative_group_id,
+                               raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Boulevardier'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestGin'),
+            30, 'ml', FALSE, FALSE, 1, 'Gin');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, alternative_group_id,
+                               raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Boulevardier'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestVodka'),
+            30, 'ml', FALSE, FALSE, 1, 'Vodka');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Boulevardier'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestCampari'),
+            30, 'ml', FALSE, FALSE, 'Campari');
+
+-- Test Aperol Spritz: TestAperol + TestSodaWater (commodity)
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Aperol Spritz', 'new_era', 'Build over ice',
+            'wine', NULL, 'https://example.com/aperolspritz');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Aperol Spritz'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestAperol'),
+            60, 'ml', FALSE, FALSE, 'Aperol');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Aperol Spritz'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestSodaWater'),
+            90, 'ml', FALSE, FALSE, 'Soda Water');
+
+-- Test Generic Mule: requires TestVodka (generic)
+-- With wildcard: TestVodka (sibling, same parent TestVodkaFamily) also satisfies
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Generic Mule', 'contemporary', 'Build in glass',
+            'highball', NULL, 'https://example.com/genericmule');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Generic Mule'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestVodka (generic)'),
+            45, 'ml', FALSE, FALSE, 'Vodka (generic)');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Generic Mule'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestSodaWater'),
+            120, 'ml', FALSE, FALSE, 'Soda Water');
+
+-- Test Gin Fizz: requires TestGin (generic) + TestSodaWater (commodity)
+-- Verifies wildcard: TestGin (sibling) satisfies TestGin (generic)
+-- Cross-family check: TestVodka does NOT satisfy TestGin (generic)
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Gin Fizz', 'contemporary', 'Build over ice',
+            'highball', NULL, 'https://example.com/ginfizz');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Gin Fizz'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestGin (generic)'),
+            45, 'ml', FALSE, FALSE, 'Gin (generic)');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Gin Fizz'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestSodaWater'),
+            90, 'ml', FALSE, FALSE, 'Soda Water');
+
+-- Test Mimosa: TestChampagne (commodity) + TestOrangeJuice (commodity)
+-- All-commodity recipe: feasible with empty inventory
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test Mimosa', 'contemporary', 'Pour into flute',
+            'flute', NULL, 'https://example.com/mimosa');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Mimosa'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestChampagne'),
+            75, 'ml', FALSE, FALSE, 'Champagne');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test Mimosa'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestOrangeJuice'),
+            75, 'ml', FALSE, FALSE, 'Orange Juice');
+
+-- Test French 75: TestGin + TestChampagne (commodity)
+-- Feasible once TestGin is owned (TestChampagne is assumed-available)
+INSERT INTO recipe (name, iba_category, method, glass, garnish, source_url)
+    VALUES ('Test French 75', 'contemporary', 'Shake and top up',
+            'flute', NULL, 'https://example.com/french75');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test French 75'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestGin'),
+            30, 'ml', FALSE, FALSE, 'Gin');
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit,
+                               is_optional, is_garnish, raw_name)
+    VALUES ((SELECT id FROM recipe WHERE name = 'Test French 75'),
+            (SELECT id FROM ingredient_class WHERE name = 'TestChampagne'),
+            60, 'ml', FALSE, FALSE, 'Champagne');
 """
 
 
