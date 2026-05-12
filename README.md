@@ -19,10 +19,8 @@ a flavor-distance engine, a substitution recommender, and a web UI.
 | Backend API | `backend/` | FastAPI REST API — recipes, bottles, feasibility, flavor distance, substitutions, shopping optimizer |
 | Frontend | `frontend/` | FastAPI + Jinja2 + HTMX web UI — cocktail browser, inventory, flavor map, substitution explorer |
 | Manifests | `manifests/` | Kustomize manifests for OpenShift Local (CRC) |
-| Scripts | `scripts/` | Offline analysis tools (flavor matrix heatmap, clustering) |
-| Scraper | `scrape_iba.py` | IBA recipe scraper → `iba_cocktails.json` |
-| Analyzer | `analyze_iba.py` | Descriptive reports (frequency, clusters, anomalies) |
-| Seed generator | `generate_seed_sql.py` | Builds `seed.sql` from JSON + taxonomy CSV |
+| Scripts | `scripts/` | Pipeline tools (scraper, analyzer, seed generator) and offline analysis |
+| Database | `db/` | Canonical `seed.sql` for deployment |
 
 ## Quick Start
 
@@ -73,6 +71,7 @@ cd frontend && pytest tests/ -v   # 80 tests
 ## Scraper
 
 ```bash
+cd scripts
 python scrape_iba.py
 ```
 
@@ -105,7 +104,8 @@ Idempotent — skips recipes already present if the output file exists.
 ## Analyzer
 
 ```bash
-python analyze_iba.py iba_cocktails.json
+cd scripts
+python analyze_iba.py data/iba_cocktails.json
 ```
 
 No dependencies beyond the standard library.
