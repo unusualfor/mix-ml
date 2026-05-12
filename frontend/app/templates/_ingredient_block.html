@@ -1,0 +1,55 @@
+<div class="mb-8 bg-white border border-slate-200 rounded-lg p-6">
+  <!-- Ingredient header -->
+  <div class="flex items-start justify-between gap-3">
+    <p class="text-lg font-medium text-slate-900">{{ ing.class_name }}</p>
+    {% if ing.is_satisfied %}
+    <span class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">{{ ing.parent_family }} · On hand</span>
+    {% else %}
+    <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{{ ing.parent_family }} · Missing</span>
+    {% endif %}
+  </div>
+  {% if ing.amount %}
+  <p class="mt-1 text-sm text-slate-600">{{ ing.amount }} {{ ing.unit or "" }}</p>
+  {% endif %}
+  {% if ing.anti_doppione_classes %}
+  <p class="mt-2 text-xs text-slate-500">Excluded from suggestions (already in recipe): {{ ing.anti_doppione_classes | join(", ") }}</p>
+  {% endif %}
+  {% if ing.note %}
+  <p class="mt-2 text-xs text-amber-700">{{ ing.note }}</p>
+  {% endif %}
+
+  <!-- Hidden radio for "keep original" (default selected) -->
+  <input type="hidden" name="swap_{{ ing_idx }}" id="swap-{{ ing_idx }}-hidden" value="">
+
+  <!-- Substitution cards as selectable options -->
+  {% if ing.has_any %}
+  <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+    {% for sub in ing.all_substitutions %}
+    <label class="cursor-pointer">
+      <input type="radio" name="swap_{{ ing_idx }}"
+             value="{{ sub.bottle.id }}:{{ sub.bottle.brand }}:{{ sub.bottle.label or '' }}:{{ sub.bottle.class_name }}"
+             class="peer sr-only">
+      <div class="bg-slate-50 border border-slate-200 rounded-md p-3 transition-all
+                  peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:ring-1 peer-checked:ring-amber-500
+                  hover:border-amber-400 hover:bg-white">
+        <div class="flex items-center justify-between mb-1">
+          {% if sub.tier == "strict" %}
+          <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-emerald-800">Strict</span>
+          {% else %}
+          <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-800">Loose</span>
+          {% endif %}
+          <span class="text-xs text-slate-500">{{ "%.2f" | format(sub.distance) }}</span>
+        </div>
+        <p class="text-base font-medium text-slate-900">{{ sub.bottle.brand }}{% if sub.bottle.label %} {{ sub.bottle.label }}{% endif %}</p>
+        <p class="text-xs text-slate-500">{{ sub.bottle.class_name }}</p>
+        {% if sub.rationale %}
+        <p class="text-xs text-slate-600 italic mt-1">{{ sub.rationale }}</p>
+        {% endif %}
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="mt-4 text-sm text-slate-500 italic">No substitutes found. This ingredient has a signature profile that can't be replaced reliably.</p>
+  {% endif %}
+</div>

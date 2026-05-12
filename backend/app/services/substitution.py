@@ -275,37 +275,23 @@ def compute_substitutions(
         if group_satisfied and not include_satisfied:
             continue
 
+        # Collect satisfying bottles for satisfied ingredients
+        sat_bottle_ids: set[int] = set()
+        satisfied_by: list[dict] = []
         if group_satisfied:
-            # Find satisfying bottles for the satisfied member(s)
-            sat_bottles: list[dict] = []
+            sat_bottles_raw: list[dict] = []
             for m in group_members:
-                sat_bottles.extend(
+                sat_bottles_raw.extend(
                     _satisfying_bottles(
                         m["class_id"], m["class_name"], m["parent_id"],
                         on_hand_bottles,
                     )
                 )
-            # Deduplicate by id
-            seen_ids: set[int] = set()
-            unique_sat: list[dict] = []
-            for sb in sat_bottles:
-                if sb["id"] not in seen_ids:
-                    seen_ids.add(sb["id"])
-                    unique_sat.append(sb)
+            for sb in sat_bottles_raw:
+                if sb["id"] not in sat_bottle_ids:
+                    sat_bottle_ids.add(sb["id"])
+                    satisfied_by.append(sb)
 
-            rep = group_members[0]
-            analysis.append({
-                "recipe_ingredient_id": rep["recipe_ingredient_id"],
-                "class_name": rep["class_name"],
-                "parent_family": rep["parent_family"],
-                "amount": float(rep["amount"]) if rep["amount"] is not None else None,
-                "unit": rep["unit"],
-                "is_satisfied": True,
-                "satisfied_by_bottles": unique_sat,
-            })
-            continue
-
-        # Not satisfied — compute substitutions
         # Pick representative: first alphabetically by class_name
         rep = min(group_members, key=lambda m: m["class_name"])
 
@@ -325,6 +311,9 @@ def compute_substitutions(
         if pivot_profile is not None:
             for b in on_hand_bottles:
                 if b.class_id in anti_doppione_ids:
+                    continue
+                # Skip bottles that already satisfy this ingredient
+                if b.id in sat_bottle_ids:
                     continue
                 d = flavor_distance(pivot_profile, b.flavor_profile)
                 same_parent = (
@@ -363,10 +352,12 @@ def compute_substitutions(
             "parent_family": rep["parent_family"],
             "amount": float(rep["amount"]) if rep["amount"] is not None else None,
             "unit": rep["unit"],
-            "is_satisfied": False,
+            "is_satisfied": group_satisfied,
             "anti_doppione_classes": anti_doppione_names,
             "substitutions": subs,
         }
+        if group_satisfied:
+            entry["satisfied_by_bottles"] = satisfied_by
         notes: list[str] = []
         if is_alt_group:
             alt_names = sorted({m["class_name"] for m in group_members})

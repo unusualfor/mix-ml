@@ -1,0 +1,25 @@
+<div class="rounded-lg border border-slate-200 bg-white p-4 mb-3">
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <p class="text-lg font-medium text-slate-900">{{ purchase.class_name }}</p>
+      <p class="mt-1 text-sm text-amber-700">Unlocks {{ purchase.unlocks }} cocktail{{ "s" if purchase.unlocks != 1 else "" }}</p>
+      {% if purchase.equivalent_alternatives %}
+      <p class="mt-2 text-xs text-slate-500">
+        Equivalent alternatives:
+        {% set alts = purchase.equivalent_alternatives %}
+        {% if alts[0] is mapping %}
+          {% set names = alts | map(attribute='class_name') | list %}
+        {% else %}
+          {% set names = alts %}
+        {% endif %}
+        {% if names|length <= 3 %}
+          {{ names | join(", ") }}
+        {% else %}
+          {{ names[:3] | join(", ") }} +{{ names|length - 3 }} more
+        {% endif %}
+      </p>
+      {% endif %}
+    </div>
+    <span class="shrink-0 text-xs text-slate-500">{{ purchase.parent_family }}</span>
+  </div>
+</div>

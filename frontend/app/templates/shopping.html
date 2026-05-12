@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}mix-ml — Shopping Planner{% endblock %}
+
+{% block content %}
+<div id="main-content">
+
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900">Shopping Planner</h1>
+    <p class="mt-2 text-slate-600">Plan purchases to maximise the cocktails you can make.</p>
+    <p class="mt-1 text-xs text-slate-500">Powered by Integer Linear Programming (OR-Tools CP-SAT solver)</p>
+  </div>
+
+  <!-- Two-column layout -->
+  <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+
+    <!-- Controls (left) -->
+    <aside class="rounded-lg border border-slate-200 bg-slate-50 p-6 lg:col-span-1 h-fit">
+
+      <!-- Budget -->
+      <label class="block text-sm font-medium text-slate-700 mb-2">Bottle budget</label>
+      <div class="flex items-center gap-3 mb-1">
+        <span id="budget-value" class="text-2xl font-bold text-amber-600">{{ params.budget }}</span>
+        <input type="range" min="1" max="10" step="1" value="{{ params.budget }}" name="budget"
+               class="flex-1 accent-amber-600"
+               hx-get="/shopping/results"
+               hx-trigger="change delay:300ms"
+               hx-target="#shopping-results"
+               hx-swap="innerHTML"
+               hx-include="closest aside"
+               oninput="document.getElementById('budget-value').textContent=this.value">
+      </div>
+      <p class="text-xs text-slate-500">Min 1, max 10</p>
+
+      <!-- Category weights -->
+      <div class="mt-6">
+        <label class="block text-sm font-medium text-slate-700 mb-3">Category priority</label>
+
+        {% set weight_configs = [
+          ("wu", "Unforgettable", "Timeless IBA classics", "amber", params.wu, params.wu_label),
+          ("wc", "Contemporary", "Modern IBA cocktails", "blue", params.wc, params.wc_label),
+          ("wn", "New Era", "Latest IBA additions", "emerald", params.wn, params.wn_label)
+        ] %}
+
+        {% for name, title, desc, color, value, label in weight_configs %}
+        <div class="{% if not loop.first %}mt-4{% endif %}">
+          <div class="flex items-center justify-between mb-1">
+            <div>
+              <span class="text-sm font-medium text-slate-700">{{ title }}</span>
+              <span class="ml-1 text-xs text-slate-500">{{ desc }}</span>
+            </div>
+            <span class="text-xs font-medium text-{{ color }}-600" id="{{ name }}-label">{{ label }}</span>
+          </div>
+          <input type="range" min="0" max="4" step="1" value="{{ value }}" name="{{ name }}"
+                 class="w-full accent-{{ color }}-600"
+                 hx-get="/shopping/results"
+                 hx-trigger="change delay:300ms"
+                 hx-target="#shopping-results"
+                 hx-swap="innerHTML"
+                 hx-include="closest aside"
+                 oninput="document.getElementById('{{ name }}-label').textContent=['ignore','low','normal','prefer','strong prefer'][this.value]">
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Reset -->
+      <button class="mt-6 w-full rounded-md bg-slate-200 py-2 text-sm text-slate-700 hover:bg-slate-300 transition-colors"
+              hx-get="/shopping/results?reset=true"
+              hx-target="#shopping-results"
+              hx-swap="innerHTML"
+              hx-include="closest aside"
+              onclick="document.querySelector('[name=budget]').value=3;document.getElementById('budget-value').textContent='3';['wu','wc','wn'].forEach(n=>{document.querySelector('[name='+n+']').value=2;document.getElementById(n+'-label').textContent='normal'})">
+        Reset defaults
+      </button>
+    </aside>
+
+    <!-- Results (right) -->
+    <div class="lg:col-span-2">
+      <div id="shopping-results" class="relative">
+        <div class="htmx-indicator pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+          <svg class="h-6 w-6 animate-spin text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+        </div>
+        {% include "_shopping_results.html" %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

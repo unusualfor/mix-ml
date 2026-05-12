@@ -1,0 +1,6 @@
+<a href="/cocktail/{{ recipe.recipe_id }}"
+   hx-get="/cocktail/{{ recipe.recipe_id }}"
+   hx-target="#main-content"
+   hx-swap="innerHTML"
+   hx-push-url="true"
+   class="inline-block rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 transition-colors hover:bg-amber-100 hover:text-amber-700 mr-1 mb-1">{{ recipe.recipe_name }}</a>

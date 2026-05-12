@@ -1,0 +1,20 @@
+<div class="mb-6 flex flex-wrap gap-2">
+  <button
+    hx-get="/inventory"
+    hx-target="#tab-content"
+    hx-swap="innerHTML"
+    hx-push-url="/inventory"
+    class="rounded-full px-4 py-2 text-sm font-medium transition-colors
+           {% if active_tab == 'collection' %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-300 hover:bg-slate-100{% endif %}">
+    Collection
+  </button>
+  <button
+    hx-get="/inventory/flavor-map"
+    hx-target="#tab-content"
+    hx-swap="innerHTML"
+    hx-push-url="/inventory/flavor-map"
+    class="rounded-full px-4 py-2 text-sm font-medium transition-colors
+           {% if active_tab == 'flavor_map' %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-300 hover:bg-slate-100{% endif %}">
+    Flavor map
+  </button>
+</div>

@@ -1,0 +1,71 @@
+{% if error %}
+<div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+  <p class="text-sm font-medium text-amber-700">Error computing picks. Please try again in a few seconds.</p>
+</div>
+
+{% elif delta == 0 %}
+<div class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white py-16 text-center">
+  <svg class="mb-4 h-12 w-12 text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+  </svg>
+  <p class="text-sm text-slate-600">No new cocktails unlocked with this budget. Try increasing the budget or changing priorities.</p>
+</div>
+
+{% else %}
+<!-- Summary -->
+<div class="rounded-lg border border-slate-200 bg-white p-6 mb-6">
+  <div class="flex items-center justify-between mb-4">
+    {% if is_optimal %}
+    <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800">OPTIMAL</span>
+    {% else %}
+    <span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">FEASIBLE (timeout)</span>
+    {% endif %}
+    <span class="text-xs text-slate-500">Computed in {{ computation_time_ms }} ms</span>
+  </div>
+  <div class="text-center">
+    <div class="text-5xl font-bold text-amber-600">+{{ delta }}</div>
+    <p class="mt-1 text-sm text-slate-600">additional cocktails unlocked</p>
+  </div>
+  <div class="mt-4 grid grid-cols-2 gap-4">
+    <div class="text-center">
+      <p class="text-2xl font-semibold text-slate-700">{{ feasible_before }}</p>
+      <p class="text-xs text-slate-500">currently feasible</p>
+    </div>
+    <div class="text-center">
+      <p class="text-2xl font-semibold text-slate-700">{{ feasible_after }}</p>
+      <p class="text-xs text-slate-500">after purchases</p>
+    </div>
+  </div>
+</div>
+
+<!-- Newly unlocked recipes -->
+{% if grouped_recipes %}
+<h2 class="text-xl font-semibold mb-4">Unlocked cocktails ({{ newly_feasible_count }})</h2>
+{% for group in grouped_recipes %}
+<div class="mb-4">
+  <div class="mb-2 flex items-center gap-2">
+    {% if group.category == "unforgettable" %}
+    <span class="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-amber-800">Unforgettable</span>
+    {% elif group.category == "contemporary" %}
+    <span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-blue-800">Contemporary</span>
+    {% elif group.category == "new_era" %}
+    <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-emerald-800">New Era</span>
+    {% endif %}
+    <span class="text-xs text-slate-500">{{ group.recipes|length }} cocktail{{ "s" if group.recipes|length != 1 else "" }}</span>
+  </div>
+  <div class="flex flex-wrap">
+    {% for recipe in group.recipes %}
+      {% include "_recipe_pill.html" %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Recommended purchases -->
+<h2 class="mt-8 text-xl font-semibold mb-4">Recommended purchases</h2>
+{% for purchase in purchases %}
+  {% include "_purchase_card.html" %}
+{% endfor %}
+
+{% endif %}

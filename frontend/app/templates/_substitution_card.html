@@ -1,0 +1,16 @@
+<a href="/inventory#bottle-{{ sub.bottle.id }}"
+   class="block bg-slate-50 border border-slate-200 rounded-md p-3 hover:border-amber-400 hover:bg-white transition-all">
+  <div class="flex items-center justify-between mb-1">
+    {% if sub.tier == "strict" %}
+    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-emerald-800">Strict</span>
+    {% else %}
+    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-800">Loose</span>
+    {% endif %}
+    <span class="text-xs text-slate-500">{{ "%.2f" | format(sub.distance) }}</span>
+  </div>
+  <p class="text-base font-medium text-slate-900">{{ sub.bottle.brand }}{% if sub.bottle.label %} {{ sub.bottle.label }}{% endif %}</p>
+  <p class="text-xs text-slate-500">{{ sub.bottle.class_name }}</p>
+  {% if sub.rationale %}
+  <p class="text-xs text-slate-600 italic mt-1">{{ sub.rationale }}</p>
+  {% endif %}
+</a>

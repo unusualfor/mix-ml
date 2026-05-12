@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MIX/ML: Mixology with a touch of Machine Learning{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+  <style>
+    [htmx-indicator] { opacity: 0; transition: opacity 200ms ease-in; }
+    .htmx-request [htmx-indicator] { opacity: 1; }
+    .bottle-card:target { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.3); }
+  </style>
+</head>
+<body class="h-full bg-slate-50 font-sans text-slate-900 antialiased">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 h-16 border-b border-slate-200 bg-white">
+    <div class="container mx-auto flex h-full max-w-6xl items-center justify-between px-6">
+      <a href="/" class="text-xl font-bold tracking-tight text-slate-900">MIX/ML<span class="hidden sm:inline text-sm font-normal text-slate-500 ml-2">Mixology with a touch of Machine Learning</span></a>
+      <nav class="hidden items-center gap-1 sm:flex">
+        <a href="/"
+           class="rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path == '/' %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+          Home
+        </a>
+        <a href="/inventory"
+           class="rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path.startswith('/inventory') %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+          Inventory
+        </a>
+        <a href="/shopping"
+           class="rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path.startswith('/shopping') %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+          Shopping Planner
+        </a>
+        <span class="group relative">
+          <span class="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 cursor-not-allowed">
+            Research
+          </span>
+          <span class="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+            Coming soon
+          </span>
+        </span>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="container mx-auto {% block main_width %}max-w-6xl{% endblock %} px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
+    mix-ml &mdash; cocktail feasibility engine
+  </footer>
+
+</body>
+</html>

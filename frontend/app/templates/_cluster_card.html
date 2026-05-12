@@ -1,0 +1,13 @@
+<div class="bg-white border border-slate-200 rounded-lg p-4 mb-3">
+  <h4 class="font-medium text-slate-900">
+    Cluster {{ cluster.idx }} · {{ cluster.count }} bottles · avg distance {{ cluster.mean_distance }}
+  </h4>
+  <div class="mt-2 flex flex-wrap gap-1">
+    {% for b in cluster.bottles %}
+    <a href="/inventory#bottle-{{ b.id }}"
+       class="inline-block bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-700 text-xs px-2 py-1 rounded mr-1 mb-1 transition-colors">
+      {{ b.brand }}{% if b.label %} {{ b.label }}{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>

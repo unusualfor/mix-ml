@@ -16,6 +16,7 @@ from app.models import (
 )
 from app import queries
 from app.services.feasibility import (
+    _GENERIC_SUFFIX,
     compute_feasibility,
     compute_single_recipe_feasibility,
     _on_hand_class_ids_from_db,
@@ -112,9 +113,15 @@ def recipe_feasibility(recipe_id: int, db: Session = Depends(get_db)):
     ingredients: list[FeasibilityIngredient] = []
     for ing in ing_rows:
         class_id = ing["class_id"]
-        bottles = db.execute(
-            queries.ON_HAND_BOTTLES_FOR_CLASS, {"class_id": class_id},
-        ).mappings().all()
+        class_name = ing["class_name"]
+        if class_name.endswith(_GENERIC_SUFFIX):
+            bottles = db.execute(
+                queries.ON_HAND_BOTTLES_FOR_SIBLINGS, {"class_id": class_id},
+            ).mappings().all()
+        else:
+            bottles = db.execute(
+                queries.ON_HAND_BOTTLES_FOR_CLASS, {"class_id": class_id},
+            ).mappings().all()
         ingredients.append(FeasibilityIngredient(
             class_name=ing["class_name"],
             satisfied_by_bottles=[SatisfyingBottle(**dict(b)) for b in bottles],

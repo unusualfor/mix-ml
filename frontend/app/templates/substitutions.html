@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}mix-ml — Evaluate alternatives for {{ recipe_name }}{% endblock %}
+
+{% block content %}
+<div id="main-content" class="max-w-6xl mx-auto">
+
+  <!-- Breadcrumb -->
+  <div class="mb-6">
+    <a href="/cocktail/{{ recipe_id }}"
+       hx-get="/cocktail/{{ recipe_id }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       hx-swap="innerHTML"
+       class="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 transition-colors">
+      <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+      </svg>
+      Back to {{ recipe_name }}
+    </a>
+  </div>
+
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900">Evaluate alternatives for {{ recipe_name }}</h1>
+    <p class="mt-2 text-slate-600">
+      {% if missing_count > 0 %}
+      Missing {{ missing_count }} ingredient{{ "s" if missing_count != 1 else "" }}.
+      {% endif %}
+      Select alternatives below, then preview your customised version.
+    </p>
+    <div class="mt-2">
+      {% if iba_category == "unforgettable" %}
+      <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-amber-800">Unforgettable</span>
+      {% elif iba_category == "contemporary" %}
+      <span class="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-blue-800">Contemporary</span>
+      {% elif iba_category == "new_era" %}
+      <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium uppercase tracking-wide text-emerald-800">New Era</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="mb-6">
+    <div class="flex flex-wrap gap-2">
+      {% set tiers = [("both", "Both"), ("strict", "Strict only"), ("loose", "Loose only")] %}
+      {% for value, label in tiers %}
+      <button hx-get="/cocktail/{{ recipe_id }}/substitutions?tier={{ value }}"
+              hx-target="#substitutions-content"
+              hx-swap="innerHTML"
+              class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors
+                {% if tier == value %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        {{ label }}
+      </button>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-slate-500 mt-2">Strict: same family. Loose: different family but close profile.</p>
+  </div>
+
+  <!-- Picker form -->
+  <form id="swap-form"
+        hx-post="/cocktail/{{ recipe_id }}/substitutions/preview"
+        hx-target="#preview-area"
+        hx-swap="innerHTML">
+
+    <!-- Content -->
+    <div id="substitutions-content">
+      {% include "_substitutions_content.html" %}
+    </div>
+
+    <!-- Preview button + hint -->
+    <div class="mt-6 flex items-center gap-4">
+      <button type="submit"
+              class="rounded-md bg-amber-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors">
+        Preview with swaps
+      </button>
+      <span class="text-xs text-slate-500">Click an alternative to select it, then preview your version.</span>
+    </div>
+  </form>
+
+  <!-- Preview area -->
+  <div id="preview-area" class="mt-8"></div>
+
+  <!-- Footer -->
+  <div class="mt-8">
+    <a href="/cocktail/{{ recipe_id }}"
+       hx-get="/cocktail/{{ recipe_id }}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       hx-swap="innerHTML"
+       class="inline-block rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-300 transition-colors">
+      Back to recipe
+    </a>
+  </div>
+
+</div>
+{% endblock %}
