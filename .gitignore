@@ -30,3 +30,6 @@ coverage.xml
 
 # Seed backup (use git history instead)
 db/seed.sql.bak
+
+# Script outputs (regenerable)
+scripts/output/
