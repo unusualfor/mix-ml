@@ -16,10 +16,21 @@ from app.models import (
     OptimizeCurrentState,
     OptimizeNextResponse,
     RankedCandidate,
+    ShoppingCurrentState,
+    ShoppingExplanation,
+    ShoppingPlanResponse,
+    ShoppingPurchase,
+    ShoppingSolution,
+    ShoppingVerifyResponse,
+    ShoppingWeights,
     UnlockedRecipe,
 )
 from app import queries
 from app.services.optimizer import compute_optimize_next
+from app.services.shopping_optimizer import (
+    compute_shopping_plan,
+    compute_explanation,
+)
 
 router = APIRouter(tags=["bottles"])
 
@@ -117,6 +128,98 @@ def optimize_next(
             candidates_evaluated=result.candidates_evaluated,
             ms=result.elapsed_ms,
         ),
+    )
+
+
+@router.get("/bottles/optimize-shopping", response_model=ShoppingPlanResponse)
+def optimize_shopping(
+    budget: int = Query(..., ge=1, le=15),
+    weight_unforgettable: float = Query(1.0, ge=0.0),
+    weight_contemporary: float = Query(1.0, ge=0.0),
+    weight_new_era: float = Query(1.0, ge=0.0),
+    explain: bool = Query(False),
+    solver_timeout_seconds: int = Query(30, ge=1, le=300),
+    db: Session = Depends(get_db),
+):
+    result = compute_shopping_plan(
+        db,
+        budget=budget,
+        weight_unforgettable=weight_unforgettable,
+        weight_contemporary=weight_contemporary,
+        weight_new_era=weight_new_era,
+        explain=explain,
+        solver_timeout_seconds=solver_timeout_seconds,
+    )
+
+    purchases = [
+        ShoppingPurchase(
+            class_id=p.class_id,
+            class_name=p.class_name,
+            parent_family=p.parent_family,
+            equivalent_alternatives=[
+                EquivalentAlternative(
+                    class_id=a.class_id,
+                    class_name=a.class_name,
+                    parent_family=a.parent_family,
+                )
+                for a in result.equiv_alts.get(p.class_id, [])
+            ],
+        )
+        for p in result.purchases
+    ]
+
+    explanation = None
+    if explain:
+        from app.services.feasibility import _FeasibilityContext
+        from app.services.inventory import get_on_hand_class_ids
+        on_hand = get_on_hand_class_ids(db)
+        ctx = _FeasibilityContext.from_session(db)
+        expl = compute_explanation(result, on_hand, ctx)
+        explanation = ShoppingExplanation(**expl)
+
+    return ShoppingPlanResponse(
+        budget=result.budget,
+        weights=ShoppingWeights(**result.weights),
+        current_state=ShoppingCurrentState(
+            feasible_recipes=result.current_feasible,
+            on_hand_class_ids_count=result.on_hand_count,
+        ),
+        solution=ShoppingSolution(
+            recommended_purchases=purchases,
+            feasible_recipes_after=result.feasible_after,
+            delta=result.delta,
+            weighted_score=result.weighted_score,
+            is_optimal=result.is_optimal,
+            solver_status=result.solver_status,
+            computation_time_ms=result.elapsed_ms,
+        ),
+        explanation=explanation,
+    )
+
+
+@router.get("/bottles/optimize-shopping/verify", response_model=ShoppingVerifyResponse)
+def optimize_shopping_verify(
+    db: Session = Depends(get_db),
+):
+    greedy = compute_optimize_next(db, top=1, include_zero=False)
+    ilp = compute_shopping_plan(db, budget=1)
+
+    greedy_top_name = greedy.candidates[0].class_name if greedy.candidates else None
+    greedy_delta = greedy.candidates[0].delta if greedy.candidates else 0
+
+    ilp_top_name = ilp.purchases[0].class_name if ilp.purchases else None
+    ilp_delta = ilp.delta
+
+    match = greedy_delta == ilp_delta
+
+    return ShoppingVerifyResponse(
+        greedy_top={"class_name": greedy_top_name, "delta": greedy_delta},
+        ilp_top={
+            "class_name": ilp_top_name,
+            "delta": ilp_delta,
+            "weighted_score": ilp.weighted_score,
+        },
+        match=match,
     )
 
 

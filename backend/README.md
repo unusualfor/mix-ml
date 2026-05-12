@@ -38,6 +38,8 @@ L'API è disponibile su `http://localhost:8000`. Docs interattivi: `http://local
 | GET | `/api/cocktails/can-make-now` | Lista ricette fattibili con inventory corrente |
 | GET | `/api/cocktails/{id}/feasibility` | Dettaglio fattibilità per ricetta |
 | GET | `/api/cocktails/optimize-next` | Prossima bottiglia che sblocca più ricette |
+| GET | `/api/bottles/optimize-shopping` | Piano acquisti ILP multi-step |
+| GET | `/api/bottles/optimize-shopping/verify` | Sanity check ILP vs greedy |
 | GET | `/api/flavor/distance` | Distanza gustativa tra due bottiglie |
 | GET | `/api/flavor/similar-bottles` | Ranking bottiglie simili a un pivot |
 | GET | `/api/flavor/substitution-trace` | Debug dettagliato logica sostituzione |
@@ -125,6 +127,34 @@ Per ogni `recipe_ingredient` non soddisfatto:
 
 Parametri: `tier=strict|loose|both`, `strict_threshold`, `loose_threshold`,
 `include_satisfied`.
+
+## Multi-step Shopping Optimization
+
+| Metodo | Path | Descrizione |
+|--------|------|-------------|
+| GET | `/api/bottles/optimize-shopping?budget=K` | Piano acquisti ILP a K bottiglie |
+| GET | `/api/bottles/optimize-shopping/verify` | Sanity check: ILP(K=1) vs greedy |
+
+Evoluzione dell'endpoint `optimize-next` (greedy K=1): dato un budget di K
+bottiglie (max 15), un solver CP-SAT (Google OR-Tools) trova il set di acquisti
+che massimizza il numero pesato di ricette IBA fattibili.
+
+**Modello ILP**: variabili booleane `x_c` (compro classe c?), `y_r` (ricetta r
+diventa fattibile?). Vincoli: `sum(x) ≤ budget`, per ogni requirement non
+soddisfatto di r: `y_r ≤ sum(x_c)` dove c può soddisfarlo (match strict +
+wildcard generic). Obiettivo: `max sum(weight[cat] × y_r)`.
+
+**Parametri**: `budget` (1–15), `weight_unforgettable/contemporary/new_era`
+(default 1.0), `explain` (false), `solver_timeout_seconds` (30).
+
+**`?explain=true`**: aggiunge `newly_feasible_recipes` (con `covered_by_purchases`)
+e `purchases_marginal_value` (decomposizione greedy a posteriori sul piano ottimo).
+
+**`/verify`**: confronta ILP(K=1) con greedy. Se `match: false`, la modellazione
+ILP diverge dalla logica di feasibility — indica un bug.
+
+**Timeout**: se il solver non converge, ritorna best-incumbent con
+`is_optimal: false`, `solver_status: "FEASIBLE"`.
 
 ## Build immagine OCI
 

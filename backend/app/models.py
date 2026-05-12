@@ -321,3 +321,65 @@ class SubstitutionTraceResponse(BaseModel):
     pivot_profile: dict[str, int] | None
     pivot_source: str
     on_hand_bottles: list[TraceBottleDetail]
+
+
+# -- shopping optimizer (ILP) -----------------------------------------------
+
+class ShoppingCurrentState(BaseModel):
+    feasible_recipes: int
+    on_hand_class_ids_count: int
+
+
+class ShoppingWeights(BaseModel):
+    unforgettable: float
+    contemporary: float
+    new_era: float
+
+
+class ShoppingPurchase(BaseModel):
+    class_id: int
+    class_name: str
+    parent_family: str | None
+    equivalent_alternatives: list[EquivalentAlternative] = []
+
+
+class ShoppingSolution(BaseModel):
+    recommended_purchases: list[ShoppingPurchase]
+    feasible_recipes_after: int
+    delta: int
+    weighted_score: float
+    is_optimal: bool
+    solver_status: str
+    computation_time_ms: int
+
+
+class NewlyFeasibleRecipe(BaseModel):
+    recipe_id: int
+    recipe_name: str
+    iba_category: str
+    covered_by_purchases: list[str]
+
+
+class PurchaseMarginalValue(BaseModel):
+    class_name: str
+    incremental_recipes_unlocked: int
+    incremental_weighted_value: float
+
+
+class ShoppingExplanation(BaseModel):
+    newly_feasible_recipes: list[NewlyFeasibleRecipe]
+    purchases_marginal_value: list[PurchaseMarginalValue]
+
+
+class ShoppingPlanResponse(BaseModel):
+    budget: int
+    weights: ShoppingWeights
+    current_state: ShoppingCurrentState
+    solution: ShoppingSolution
+    explanation: ShoppingExplanation | None = None
+
+
+class ShoppingVerifyResponse(BaseModel):
+    greedy_top: dict
+    ilp_top: dict
+    match: bool
