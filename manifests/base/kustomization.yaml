@@ -11,7 +11,8 @@ labels:
 
 resources:
   - namespace.yaml
-  - postgres-secret.yaml
+  # postgres-secret.yaml removed — managed out-of-band by setup-secrets.sh
+  # ArgoCD RespectIgnoreDifferences was not preventing sync overwrite.
   - postgres-pvc.yaml
   - postgres-deployment.yaml
   - postgres-service.yaml
