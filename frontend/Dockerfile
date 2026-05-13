@@ -1,6 +1,7 @@
 # Stage 1 — install dependencies
-FROM registry.access.redhat.com/ubi9/python-311 AS deps
+FROM registry.access.redhat.com/ubi9/python-311@sha256:de8a3132505ea3aabc0133dab66aae1e45cc967edbf399477a771e18cf0c34e8 AS deps
 
+USER 0
 WORKDIR /build
 COPY pyproject.toml .
 RUN mkdir -p app && touch app/__init__.py && \
@@ -9,7 +10,7 @@ RUN mkdir -p app && touch app/__init__.py && \
     /opt/venv/bin/pip install --no-cache-dir .
 
 # Stage 2 — runtime
-FROM registry.access.redhat.com/ubi9/python-311
+FROM registry.access.redhat.com/ubi9/python-311@sha256:de8a3132505ea3aabc0133dab66aae1e45cc967edbf399477a771e18cf0c34e8
 
 COPY --from=deps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
