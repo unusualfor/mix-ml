@@ -1,0 +1,11 @@
+# Override for local builds (instead of pulling from ghcr.io)
+# Usage: podman compose -f compose.yaml -f compose.build.yaml build
+
+services:
+  backend:
+    build:
+      context: ./backend
+
+  frontend:
+    build:
+      context: ./frontend

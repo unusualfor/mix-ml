@@ -1,6 +1,7 @@
 # Podman / Docker Compose — local development & website deployment
-# Usage:  podman compose up -d
+# Usage:  podman compose up -d            (pulls from ghcr.io)
 #         podman compose down
+# Local build:  podman compose -f compose.yaml -f compose.build.yaml build
 
 services:
   postgres:
@@ -22,8 +23,6 @@ services:
 
   backend:
     image: ghcr.io/unusualfor/mix-ml-backend:v1.0.0
-    build:
-      context: ./backend
     environment:
       DATABASE_URL: "postgresql+psycopg://cocktailuser:cocktail@postgres:5432/cocktails"
     ports:
@@ -34,8 +33,6 @@ services:
 
   frontend:
     image: ghcr.io/unusualfor/mix-ml-frontend:v1.0.0
-    build:
-      context: ./frontend
     environment:
       BACKEND_URL: "http://backend:8080"
     depends_on:
