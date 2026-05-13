@@ -1,0 +1,54 @@
+# Custom git-clone task — OpenShift Pipelines no longer ships ClusterTasks.
+# Clones a git repo into the shared workspace.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: git-clone
+  namespace: mix-ml-ci
+  labels:
+    app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/component: ci
+spec:
+  params:
+    - name: url
+      type: string
+      description: Git repository URL
+    - name: revision
+      type: string
+      default: main
+      description: Branch, tag, or SHA to checkout
+    - name: deleteExisting
+      type: string
+      default: "true"
+      description: Remove existing contents of the workspace before clone
+  results:
+    - name: commit
+      description: Full SHA of the checked-out commit
+  workspaces:
+    - name: output
+      description: Workspace to clone into
+  steps:
+    - name: clone
+      image: registry.redhat.io/openshift-pipelines/pipelines-git-init-rhel8@sha256:c4b2183f7c7997bd401d86b33eefb637b3ef2fa90618e875106292571e023b7d1
+      env:
+        - name: PARAM_URL
+          value: "$(params.url)"
+        - name: PARAM_REVISION
+          value: "$(params.revision)"
+        - name: PARAM_DELETE
+          value: "$(params.deleteExisting)"
+        - name: WORKSPACE_PATH
+          value: "$(workspaces.output.path)"
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        if [ "$PARAM_DELETE" = "true" ] && [ -d "$WORKSPACE_PATH" ]; then
+          rm -rf "${WORKSPACE_PATH:?}"/*
+          rm -rf "${WORKSPACE_PATH}"/.* 2>/dev/null || true
+        fi
+        git clone "$PARAM_URL" "$WORKSPACE_PATH"
+        cd "$WORKSPACE_PATH"
+        git checkout "$PARAM_REVISION"
+        RESULT_SHA=$(git rev-parse HEAD)
+        printf "%s" "$RESULT_SHA" > "$(results.commit.path)"
+        echo "Cloned $PARAM_URL @ $RESULT_SHA"

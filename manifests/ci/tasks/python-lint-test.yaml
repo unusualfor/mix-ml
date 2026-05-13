@@ -1,0 +1,54 @@
+# Lint + test the backend Python code.
+# Installs dev dependencies, runs ruff (if available) and pytest.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: python-lint-test
+  namespace: mix-ml-ci
+  labels:
+    app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/component: ci
+spec:
+  workspaces:
+    - name: source
+      description: Cloned repo workspace
+  steps:
+    - name: install-deps
+      image: registry.access.redhat.com/ubi9/python-311:latest
+      workingDir: "$(workspaces.source.path)"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        python -m venv /tmp/venv
+        source /tmp/venv/bin/activate
+        pip install --no-cache-dir -e "backend/[dev]"
+        pip install --no-cache-dir ruff || echo "ruff not installable, will skip lint"
+        # Persist venv path for subsequent steps
+        echo "/tmp/venv" > /tmp/venv-path
+
+    - name: lint
+      image: registry.access.redhat.com/ubi9/python-311:latest
+      workingDir: "$(workspaces.source.path)"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        source /tmp/venv/bin/activate
+        if command -v ruff &>/dev/null; then
+          echo "=== Running ruff ==="
+          ruff check backend/ --output-format=text || true
+        else
+          echo "ruff not available — lint skipped"
+        fi
+
+    - name: test
+      image: registry.access.redhat.com/ubi9/python-311:latest
+      workingDir: "$(workspaces.source.path)/backend"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        source /tmp/venv/bin/activate
+        echo "=== Running pytest ==="
+        pytest tests/ -v --tb=short 2>&1 || {
+          echo "Tests failed"
+          exit 1
+        }

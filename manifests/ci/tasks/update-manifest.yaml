@@ -1,0 +1,74 @@
+# Update manifests/base/kustomization.yaml with the new image tag,
+# then commit and push to the repo.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: update-manifest
+  namespace: mix-ml-ci
+  labels:
+    app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/component: ci
+spec:
+  params:
+    - name: image-name
+      type: string
+      description: Full image name without tag
+    - name: new-tag
+      type: string
+      description: "New image tag (e.g. git-abc1234)"
+    - name: git-branch
+      type: string
+      default: main
+  workspaces:
+    - name: source
+      description: Cloned repo workspace (must have git credentials configured)
+  steps:
+    - name: update-kustomization
+      image: mikefarah/yq:4
+      workingDir: "$(workspaces.source.path)"
+      env:
+        - name: IMAGE_NAME
+          value: "$(params.image-name)"
+        - name: NEW_TAG
+          value: "$(params.new-tag)"
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        KUSTOMIZE="manifests/base/kustomization.yaml"
+
+        echo "Updating $KUSTOMIZE: image=$IMAGE_NAME newTag=$NEW_TAG"
+
+        # Remove existing entry for this image (if any), then add fresh
+        yq -i "del(.images[] | select(.name == env(IMAGE_NAME)))" "$KUSTOMIZE" 2>/dev/null || true
+
+        # Ensure images key exists
+        yq -i '.images //= []' "$KUSTOMIZE"
+
+        # Append the new image override
+        yq -i '.images += [{"name": env(IMAGE_NAME), "newTag": env(NEW_TAG)}]' "$KUSTOMIZE"
+
+        echo "Result:"
+        yq '.images' "$KUSTOMIZE"
+
+    - name: git-commit-push
+      image: registry.access.redhat.com/ubi9-minimal:latest
+      workingDir: "$(workspaces.source.path)"
+      env:
+        - name: NEW_TAG
+          value: "$(params.new-tag)"
+        - name: GIT_BRANCH
+          value: "$(params.git-branch)"
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        microdnf install -y git-core >/dev/null 2>&1 || true
+        git config user.name "tekton-bot"
+        git config user.email "tekton@mix-ml.local"
+        git add manifests/base/kustomization.yaml
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+          exit 0
+        fi
+        git commit -m "ci: bump backend image to ${NEW_TAG}"
+        git push origin "HEAD:${GIT_BRANCH}"
+        echo "Pushed manifest update for ${NEW_TAG}"

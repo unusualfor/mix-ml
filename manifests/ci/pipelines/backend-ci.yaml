@@ -1,0 +1,89 @@
+# Tekton Pipeline: backend-ci
+# Clones → lint/test → build/push → update manifest → push to git.
+# ArgoCD detects the manifest change and shows OutOfSync.
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: backend-ci
+  namespace: mix-ml-ci
+  labels:
+    app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/component: ci
+spec:
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL (https)
+    - name: git-revision
+      type: string
+      default: main
+      description: Branch or tag to build
+    - name: image-name
+      type: string
+      default: ghcr.io/unusualfor/mix-ml-backend
+      description: Full image name without tag
+  workspaces:
+    - name: shared
+      description: Shared workspace for clone/build/push
+    - name: docker-credentials
+      description: Registry auth for ghcr.io (mounted from secret)
+  tasks:
+    - name: git-clone
+      taskRef:
+        name: git-clone
+      params:
+        - name: url
+          value: "$(params.git-url)"
+        - name: revision
+          value: "$(params.git-revision)"
+        - name: deleteExisting
+          value: "true"
+      workspaces:
+        - name: output
+          workspace: shared
+
+    - name: compute-image-tag
+      runAfter: ["git-clone"]
+      taskRef:
+        name: compute-image-tag
+      workspaces:
+        - name: source
+          workspace: shared
+
+    - name: lint-and-test
+      runAfter: ["git-clone"]
+      taskRef:
+        name: python-lint-test
+      workspaces:
+        - name: source
+          workspace: shared
+
+    - name: build-and-push
+      runAfter: ["lint-and-test", "compute-image-tag"]
+      taskRef:
+        name: buildah-build-push
+      params:
+        - name: image-name
+          value: "$(params.image-name)"
+        - name: image-tag
+          value: "$(tasks.compute-image-tag.results.image-tag)"
+      workspaces:
+        - name: source
+          workspace: shared
+        - name: docker-credentials
+          workspace: docker-credentials
+
+    - name: update-manifest
+      runAfter: ["build-and-push"]
+      taskRef:
+        name: update-manifest
+      params:
+        - name: image-name
+          value: "$(params.image-name)"
+        - name: new-tag
+          value: "$(tasks.compute-image-tag.results.image-tag)"
+        - name: git-branch
+          value: "$(params.git-revision)"
+      workspaces:
+        - name: source
+          workspace: shared

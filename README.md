@@ -120,15 +120,9 @@ ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes g
 3. In ArgoCD UI, click "Refresh" then "Sync" on the `mix-ml` Application.
 4. Verify resources are healthy.
 
-#### Updating Application Code
+#### Updating Application Code (via Tekton CI)
 
-Code in `backend/` and `frontend/` is built into images on `ghcr.io`.
-For now this is manual (Slice 2 will introduce Tekton automation):
-
-1. Build image: `podman build -t ghcr.io/unusualfor/mix-ml-backend:vX.Y.Z backend/`
-2. Push: `podman push ghcr.io/unusualfor/mix-ml-backend:vX.Y.Z`
-3. Edit `manifests/base/backend-deployment.yaml` to use new tag.
-4. Commit, push, sync via ArgoCD.
+See the **CI/CD: Backend Pipeline** section below for automated builds.
 
 #### Database Seeding (Manual Operation)
 
@@ -185,9 +179,80 @@ bash tests/test_gitops_setup.sh
 - **Multi-environment** (dev/staging/prod): current setup is single CRC environment. Production uses overlays per environment + promotion workflows.
 - **Image scanning** (Trivy, ACS): pipeline images go to ghcr.io without security analysis.
 - **Policy-as-code** (Kyverno, OPA Gatekeeper): no admission controller policies enforced.
-- **Webhook-triggered pipelines**: CRC is not internet-exposed. Tekton triggers run via manual `tkn pipeline start` (Slice 2).
+- **Webhook-triggered pipelines**: CRC is not internet-exposed. Tekton triggers run via manual `tkn pipeline start`.
+- **Frontend CI pipeline**: same pattern as backend, deferred to a future iteration.
 - **Sync waves and hooks**: ArgoCD Application could declare ordering. Current config is flat single-wave sync.
 - **Auto-sync**: currently manual sync only. Production could enable auto-sync with auto-prune.
+
+## CI/CD: Backend Pipeline
+
+### Architecture
+
+The backend image is built by a Tekton pipeline running inside the cluster (`mix-ml-ci` namespace). The pipeline:
+
+1. Clones the repository at the specified branch/commit
+2. Lints (ruff) and tests (pytest) the Python code
+3. Builds the container image with Buildah using `backend/Dockerfile`
+4. Pushes to `ghcr.io/unusualfor/mix-ml-backend` with two tags: `git-<short-sha>` (immutable) and `latest` (mobile)
+5. Updates `manifests/base/kustomization.yaml` with a Kustomize `images:` override referencing the new immutable tag
+6. Commits and pushes the manifest update to `main`
+
+ArgoCD detects the manifest change at the next refresh and shows the application as `OutOfSync`. Sync is manual: review the change in the ArgoCD UI, click **Sync**, verify pods restart with the new image.
+
+### One-time setup
+
+After Slice 1 is complete, run:
+
+```bash
+# Bootstrap CI resources (namespace, SA, RBAC, tasks, pipeline)
+bash scripts/bootstrap-ci.sh
+
+# Configure secrets (needs GitHub PAT with repo + write:packages scope)
+export GITHUB_USERNAME=unusualfor
+export GITHUB_TOKEN=ghp_...
+bash scripts/setup-ci-secrets.sh
+```
+
+### Triggering a build manually
+
+```bash
+bash scripts/build-backend.sh
+```
+
+The script reads the current git branch via `git branch --show-current`; commit and push any local changes before triggering. `--showlog` streams the pipeline output live.
+
+Once the pipeline succeeds:
+- The new image is on `ghcr.io` with tags `git-<sha>` + `latest`
+- `manifests/base/kustomization.yaml` has been updated in the repo
+- ArgoCD shows `OutOfSync` — sync manually from the UI
+
+### Watching the pipeline
+
+- OpenShift console → **Pipelines** → namespace `mix-ml-ci` → `backend-ci` pipeline
+- Or via CLI:
+  ```bash
+  tkn pipelinerun list -n mix-ml-ci
+  tkn pipelinerun logs <name> -f -n mix-ml-ci
+  ```
+
+### Validating the CI setup
+
+```bash
+bash tests/test_backend_ci.sh
+```
+
+### Common failure modes
+
+| Failure | Cause | Fix |
+|---------|-------|-----|
+| `lint-and-test` fails | Code has lint errors or test failures | Fix locally, commit, re-run |
+| `build-and-push` auth error | `ghcr-credentials` expired or missing | Re-run `setup-ci-secrets.sh` |
+| `update-manifest` git push error | `github-credentials` expired or PAT lacks `repo` scope | Re-run `setup-ci-secrets.sh` with new PAT |
+| ArgoCD doesn't show OutOfSync | Polling interval ~3 min | Click **Refresh** in UI |
+
+### Why manual sync and not auto-sync?
+
+This iteration uses manual ArgoCD sync deliberately: it keeps a human in the loop between "image built" and "image deployed", which is useful for portfolio-grade demos and for catching mistakes. Production setups often enable auto-sync with retries — straightforward change to `Application` spec, deferred to a future iteration.
 
 ## Scraper
 

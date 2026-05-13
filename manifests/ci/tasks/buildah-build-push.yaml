@@ -1,0 +1,127 @@
+# Build and push container image with Buildah.
+# Produces two tags: git-<sha> (immutable) + latest (mobile).
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: buildah-build-push
+  namespace: mix-ml-ci
+  labels:
+    app.kubernetes.io/part-of: cocktail-platform
+    app.kubernetes.io/component: ci
+spec:
+  params:
+    - name: image-name
+      type: string
+      description: Full image name without tag (e.g. ghcr.io/user/repo)
+    - name: image-tag
+      type: string
+      description: "Immutable tag (e.g. git-abc1234)"
+    - name: dockerfile
+      type: string
+      default: backend/Dockerfile
+    - name: context
+      type: string
+      default: backend
+  workspaces:
+    - name: source
+      description: Cloned repo workspace
+    - name: docker-credentials
+      description: Registry credentials (mounted from secret)
+  results:
+    - name: image-digest
+      description: Digest of the built image
+  steps:
+    - name: build
+      image: quay.io/buildah/stable:latest
+      workingDir: "$(workspaces.source.path)"
+      securityContext:
+        privileged: true
+      env:
+        - name: IMAGE
+          value: "$(params.image-name):$(params.image-tag)"
+        - name: DOCKERFILE
+          value: "$(params.dockerfile)"
+        - name: CONTEXT
+          value: "$(params.context)"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        echo "Building ${IMAGE} from ${DOCKERFILE} in ${CONTEXT}"
+        buildah bud \
+          --storage-driver=vfs \
+          --format=oci \
+          -f "$DOCKERFILE" \
+          -t "$IMAGE" \
+          "$CONTEXT"
+
+    - name: tag-latest
+      image: quay.io/buildah/stable:latest
+      securityContext:
+        privileged: true
+      env:
+        - name: IMAGE
+          value: "$(params.image-name):$(params.image-tag)"
+        - name: LATEST
+          value: "$(params.image-name):latest"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        buildah --storage-driver=vfs tag "$IMAGE" "$LATEST"
+
+    - name: push-sha
+      image: quay.io/buildah/stable:latest
+      workingDir: "$(workspaces.source.path)"
+      securityContext:
+        privileged: true
+      env:
+        - name: IMAGE
+          value: "$(params.image-name):$(params.image-tag)"
+        - name: DOCKER_CONFIG
+          value: "$(workspaces.docker-credentials.path)"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        # Build authfile from mounted dockerconfigjson secret
+        AUTHFILE="/tmp/auth.json"
+        if [ -f "${DOCKER_CONFIG}/.dockerconfigjson" ]; then
+          cp "${DOCKER_CONFIG}/.dockerconfigjson" "$AUTHFILE"
+        elif [ -f "${DOCKER_CONFIG}/config.json" ]; then
+          cp "${DOCKER_CONFIG}/config.json" "$AUTHFILE"
+        else
+          echo "ERROR: no docker auth found in workspace"
+          ls -la "$DOCKER_CONFIG"
+          exit 1
+        fi
+        echo "Pushing ${IMAGE}"
+        buildah --storage-driver=vfs push \
+          --authfile="$AUTHFILE" \
+          --tls-verify=true \
+          --digestfile=/tmp/digest \
+          "$IMAGE"
+        DIGEST=$(cat /tmp/digest)
+        printf "%s" "$DIGEST" > "$(results.image-digest.path)"
+        echo "Pushed ${IMAGE} @ ${DIGEST}"
+
+    - name: push-latest
+      image: quay.io/buildah/stable:latest
+      securityContext:
+        privileged: true
+      env:
+        - name: LATEST
+          value: "$(params.image-name):latest"
+        - name: DOCKER_CONFIG
+          value: "$(workspaces.docker-credentials.path)"
+      script: |
+        #!/usr/bin/env bash
+        set -eu
+        AUTHFILE="/tmp/auth.json"
+        if [ -f "${DOCKER_CONFIG}/.dockerconfigjson" ]; then
+          cp "${DOCKER_CONFIG}/.dockerconfigjson" "$AUTHFILE"
+        elif [ -f "${DOCKER_CONFIG}/config.json" ]; then
+          cp "${DOCKER_CONFIG}/config.json" "$AUTHFILE"
+        fi
+        echo "Pushing ${LATEST}"
+        buildah --storage-driver=vfs push \
+          --authfile="$AUTHFILE" \
+          --tls-verify=true \
+          "$LATEST"
