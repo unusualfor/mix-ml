@@ -21,6 +21,7 @@ resources:
   - frontend-deployment.yaml
   - frontend-service.yaml
   - frontend-route.yaml
+  - seed-job.yaml
 
 configMapGenerator:
   - name: postgres-seed
