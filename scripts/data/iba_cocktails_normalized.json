@@ -1373,10 +1373,10 @@
       {
         "amount": 7.5,
         "unit": "ml",
-        "class": "Fernet (generic)",
+        "class": "Fernet Branca",
         "is_optional": false,
         "is_garnish": false,
-        "raw_name": "Fernet"
+        "raw_name": "Fernet Branca"
       }
     ],
     "method": "Pour all ingredients into mixing glass with ice cubes. Stir well. Strain into chilled cocktail glass.",
