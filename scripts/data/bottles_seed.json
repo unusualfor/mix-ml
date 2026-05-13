@@ -758,7 +758,7 @@
     "brand": "Ragged Branch",
     "label": "Wheated Bourbon",
     "abv": 45.0,
-    "on_hand": true,
+    "on_hand": false,
     "flavor_profile": {
       "sweet": 3,
       "bitter": 1,

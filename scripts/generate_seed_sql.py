@@ -155,6 +155,7 @@ if _bottles_path.exists():
                 "brand": b["brand"],
                 "label": b.get("label"),
                 "abv": b.get("abv"),
+                "on_hand": b.get("on_hand", True),
                 "flavor": b.get("flavor_profile", {}),
             }
             for b in json.load(_f)
@@ -532,12 +533,20 @@ def generate(recipes: list[dict]) -> str:
             brand = bot["brand"]
             label = bot.get("label")
             abv = bot.get("abv")
+            on_hand = bot.get("on_hand", True)
             flavor = bot.get("flavor", {})
-            lines.append(
-                f"INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) "
-                f"VALUES ({class_subquery(cls_name)}, {sql_str(brand)}, "
-                f"{sql_str(label)}, {sql_num(abv)}, {sql_jsonb(flavor)});"
-            )
+            if on_hand:
+                lines.append(
+                    f"INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) "
+                    f"VALUES ({class_subquery(cls_name)}, {sql_str(brand)}, "
+                    f"{sql_str(label)}, {sql_num(abv)}, {sql_jsonb(flavor)});"
+                )
+            else:
+                lines.append(
+                    f"INSERT INTO bottle (class_id, brand, label, abv, on_hand, flavor_profile) "
+                    f"VALUES ({class_subquery(cls_name)}, {sql_str(brand)}, "
+                    f"{sql_str(label)}, {sql_num(abv)}, FALSE, {sql_jsonb(flavor)});"
+                )
             if (i + 1) % 10 == 0:
                 lines.append(f"-- ({i + 1} bottles inserted)")
         lines.append(f"-- ({len(BOTTLES)} bottles total)")
