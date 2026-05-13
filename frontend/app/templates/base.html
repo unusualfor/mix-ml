@@ -27,9 +27,10 @@
 <body class="h-full bg-slate-50 font-sans text-slate-900 antialiased">
 
   <!-- Header -->
-  <header class="sticky top-0 z-30 h-16 border-b border-slate-200 bg-white">
-    <div class="container mx-auto flex h-full max-w-6xl items-center justify-between px-6">
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
+    <div class="container mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
       <a href="/" class="text-xl font-bold tracking-tight text-slate-900">MIX/ML<span class="hidden sm:inline text-sm font-normal text-slate-500 ml-2">Mixology with a touch of Machine Learning</span></a>
+      <!-- Desktop nav -->
       <nav class="hidden items-center gap-1 sm:flex">
         <a href="/"
            class="rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path == '/' %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
@@ -52,7 +53,32 @@
           </span>
         </span>
       </nav>
+      <!-- Mobile hamburger -->
+      <button onclick="document.getElementById('mobile-nav').classList.toggle('hidden')"
+              class="sm:hidden rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label="Menu">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
     </div>
+    <!-- Mobile menu (hidden by default) -->
+    <nav id="mobile-nav" class="hidden border-t border-slate-200 bg-white px-6 pb-4 sm:hidden">
+      <a href="/"
+         class="block rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path == '/' %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+        Home
+      </a>
+      <a href="/inventory"
+         class="block rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path.startswith('/inventory') %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+        Inventory
+      </a>
+      <a href="/shopping"
+         class="block rounded-lg px-3 py-2 text-sm font-medium {% if request.url.path.startswith('/shopping') %}text-slate-900 bg-slate-100{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+        Shopping Planner
+      </a>
+      <span class="block rounded-lg px-3 py-2 text-sm font-medium text-slate-400">
+        Research (coming soon)
+      </span>
+    </nav>
   </header>
 
   <!-- Main -->
