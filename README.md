@@ -70,6 +70,56 @@ cd frontend && pytest tests/ -v   # 80 tests
 
 ## Deployment & GitOps
 
+### Architecture
+
+The mix-ml deployment pipeline implements a complete GitOps workflow on OpenShift Local (CRC):
+
+```mermaid
+flowchart LR
+    Dev[Developer<br/>local laptop] -->|git push code| GH[GitHub repo]
+    Dev -->|tkn pipeline start| TK[Tekton Pipelines<br/>mix-ml-ci namespace]
+
+    TK -->|clone source| GH
+    TK -->|lint + test| TK
+    TK -->|build + push| GHCR[ghcr.io<br/>container registry]
+    TK -->|commit manifest update| GH
+
+    GH -->|polled every 3min| Argo[ArgoCD<br/>openshift-gitops namespace]
+    Argo -->|manual sync via UI| Workloads[Workloads<br/>mix-ml namespace]
+
+    GHCR -.->|pulled by pods| Workloads
+
+    Workloads --> Postgres[(Postgres)]
+    Workloads --> Backend[Backend FastAPI]
+    Workloads --> Frontend[Frontend HTMX/FastAPI]
+
+    Frontend -->|HTTP cluster-internal| Backend
+    Backend -->|SQL| Postgres
+
+    User[End user] -->|HTTPS via Route| Frontend
+
+    classDef external fill:#fef3c7,stroke:#92400e
+    classDef cluster fill:#dbeafe,stroke:#1e40af
+    classDef workload fill:#d1fae5,stroke:#065f46
+
+    class Dev,GH,GHCR,User external
+    class TK,Argo cluster
+    class Workloads,Postgres,Backend,Frontend workload
+```
+
+The architecture separates three concerns:
+
+- **External** (yellow): developer environment, source code repository, container registry, end users
+- **Cluster automation** (blue): Tekton pipelines build images; ArgoCD synchronizes desired state from Git to running cluster
+- **Workloads** (green): the actual application components (Postgres, backend, frontend)
+
+Key design decisions:
+
+- **Manifest-driven deployment**: the cluster state is fully determined by `manifests/` in the repo. No `oc apply` outside of bootstrap.
+- **Immutable image tags**: every build produces `git-<sha>` tag. Manifests reference SHA tags, never `latest`. Rollback is a tag change committed to Git.
+- **Manual sync gate**: ArgoCD does not auto-sync. A human reviews the diff in the ArgoCD UI before applying changes.
+- **Single-direction Git flow**: developers commit application code; Tekton commits manifest bumps; ArgoCD reads only. No circular updates.
+
 The system runs on OpenShift Local (CRC), managed via ArgoCD (Red Hat OpenShift GitOps).
 ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes go through Git.
 
@@ -77,7 +127,7 @@ ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes g
 
 - OpenShift Local (CRC) running, ~16 GB RAM allocated
 - `oc` CLI logged in as `kubeadmin` (cluster-admin)
-- `git` and `bash`
+- `git`, `bash`, and `tkn` CLI
 
 ### One-Time Bootstrap
 
@@ -85,9 +135,8 @@ ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes g
    ```bash
    export POSTGRES_PASSWORD=$(openssl rand -base64 24)
    export POSTGRES_ADMIN_PASSWORD=$(openssl rand -base64 24)
-   # Optional: for private ghcr.io images
    export GITHUB_USERNAME=unusualfor
-   export GITHUB_TOKEN=ghp_...
+   export GITHUB_TOKEN=ghp_...   # PAT with repo + write:packages scope
    ```
 
 2. **Set up secrets in cluster:**
@@ -103,7 +152,6 @@ ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes g
 4. **Open ArgoCD UI** (URL printed by the script). Username: `admin`, password from script output.
 
 5. **Find the `mix-ml` Application. Click "Sync" to deploy.**
-   ArgoCD renders Kustomize, compares desired state with cluster, and applies diffs.
 
 6. **Once pods are healthy, seed the database:**
    ```bash
@@ -111,7 +159,44 @@ ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes g
    oc wait --for=condition=complete job/postgres-seed -n mix-ml --timeout=180s
    ```
 
-### Daily Operations
+7. **Bootstrap CI pipelines:**
+   ```bash
+   bash scripts/bootstrap-ci.sh
+   bash scripts/setup-ci-secrets.sh
+   ```
+
+### Daily Workflow
+
+#### Scenario: small backend change
+1. Edit code in `backend/`, commit and push
+2. `bash scripts/build-backend.sh`
+3. Wait for pipeline (~5-10 min)
+4. ArgoCD UI: Refresh → Sync
+5. Verify: `oc get pods -n mix-ml -l app.kubernetes.io/name=backend`
+
+#### Scenario: small frontend change
+Same as above but `bash scripts/build-frontend.sh`.
+
+#### Scenario: coordinated release (backend + frontend together)
+1. Make changes in both `backend/` and `frontend/`, commit and push
+2. `bash scripts/build-all.sh`
+3. Wait for both pipelines
+4. ArgoCD UI: Refresh → Sync (single sync applies both manifest updates)
+5. Verify both pods restarted
+
+#### Scenario: manifest-only change (e.g. scale replicas, change env var)
+1. Edit `manifests/base/...yaml`, commit and push
+2. No pipeline trigger needed
+3. ArgoCD UI: Refresh → Sync
+
+#### Scenario: rollback
+1. Revert the kustomization.yaml change to a previous SHA tag:
+   ```bash
+   git revert <bump-commit-sha>
+   git push
+   ```
+2. ArgoCD UI: Refresh → Sync
+3. Pods restart with previous image
 
 #### Updating Manifests
 
@@ -119,10 +204,6 @@ ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes g
 2. Commit and push to `main`.
 3. In ArgoCD UI, click "Refresh" then "Sync" on the `mix-ml` Application.
 4. Verify resources are healthy.
-
-#### Updating Application Code (via Tekton CI)
-
-See the **CI/CD: Backend Pipeline** section below for automated builds.
 
 #### Database Seeding (Manual Operation)
 
@@ -156,11 +237,70 @@ oc exec deploy/postgres -n mix-ml -- psql -U cocktailuser -d cocktails -c "
   UNION ALL SELECT 'bottles', COUNT(*) FROM bottle;"
 ```
 
-### GitOps Validation
+## CI/CD: Application Pipelines
+
+Both the backend and frontend are built by Tekton pipelines running in the `mix-ml-ci` namespace. The pipelines share a common set of reusable Tasks, parameterized by `app-path`.
+
+### Pipeline flow
+
+Each pipeline (`backend-ci` and `frontend-ci`) follows the same DAG:
+
+```
+git-clone → compute-image-tag ─┐
+         → lint-and-test ──────┼→ build-and-push → update-manifest
+                               │     (buildah)       (yq + git push)
+```
+
+1. Clones the repository at the specified branch/commit
+2. Lints (ruff) and tests (pytest) the Python code
+3. Builds the container image with Buildah
+4. Pushes to `ghcr.io` with two tags: `git-<short-sha>` (immutable) and `latest` (mobile)
+5. Updates `manifests/base/kustomization.yaml` with a Kustomize `images:` override referencing the new immutable tag
+6. Commits and pushes the manifest change to `main`
+
+ArgoCD detects the manifest change at the next refresh and shows `OutOfSync`. Sync is manual.
+
+### Triggering builds
 
 ```bash
-bash tests/test_gitops_setup.sh
+# Backend only
+bash scripts/build-backend.sh
+
+# Frontend only
+bash scripts/build-frontend.sh
+
+# Both in parallel
+bash scripts/build-all.sh
 ```
+
+Scripts read the current git branch via `git branch --show-current`. Commit and push any local changes before triggering. `--showlog` streams pipeline output live.
+
+### Watching the pipeline
+
+- OpenShift console → **Pipelines** → namespace `mix-ml-ci`
+- Or via CLI:
+  ```bash
+  tkn pipelinerun list -n mix-ml-ci
+  tkn pipelinerun logs <name> -f -n mix-ml-ci
+  ```
+
+### Validating the CI setup
+
+```bash
+bash tests/test_backend_ci.sh      # backend pipeline checks
+bash tests/test_frontend_ci.sh     # frontend pipeline checks
+bash tests/test_full_gitops.sh     # full stack validation
+```
+
+### Common failure modes
+
+| Failure | Cause | Fix |
+|---------|-------|-----|
+| `lint-and-test` fails | Code has lint errors or test failures | Fix locally, commit, re-run |
+| `build-and-push` auth error | `ghcr-credentials` expired or missing | Re-run `setup-ci-secrets.sh` |
+| `update-manifest` git push error | `github-credentials` expired or PAT lacks `repo` scope | Re-run `setup-ci-secrets.sh` with new PAT |
+| ArgoCD doesn't show OutOfSync | Polling interval ~3 min | Click **Refresh** in UI |
+| Frontend lint-and-test numpy/scipy error | Heavy deps timeout in install step | Retry; CRC may need more resources |
 
 ### Troubleshooting
 
@@ -173,86 +313,46 @@ bash tests/test_gitops_setup.sh
 **ImagePullBackOff for backend/frontend**
 — ghcr.io credentials missing. Re-run `setup-secrets.sh` with `GITHUB_USERNAME` and `GITHUB_TOKEN`.
 
-### Future Enhancements (Out of Scope)
-
-- **Sealed Secrets / External Secrets Operator**: secrets currently use placeholder + setup script. Production would use sealed secrets committed to Git, or External Secrets fetching from a vault.
-- **Multi-environment** (dev/staging/prod): current setup is single CRC environment. Production uses overlays per environment + promotion workflows.
-- **Image scanning** (Trivy, ACS): pipeline images go to ghcr.io without security analysis.
-- **Policy-as-code** (Kyverno, OPA Gatekeeper): no admission controller policies enforced.
-- **Webhook-triggered pipelines**: CRC is not internet-exposed. Tekton triggers run via manual `tkn pipeline start`.
-- **Frontend CI pipeline**: same pattern as backend, deferred to a future iteration.
-- **Sync waves and hooks**: ArgoCD Application could declare ordering. Current config is flat single-wave sync.
-- **Auto-sync**: currently manual sync only. Production could enable auto-sync with auto-prune.
-
-## CI/CD: Backend Pipeline
-
-### Architecture
-
-The backend image is built by a Tekton pipeline running inside the cluster (`mix-ml-ci` namespace). The pipeline:
-
-1. Clones the repository at the specified branch/commit
-2. Lints (ruff) and tests (pytest) the Python code
-3. Builds the container image with Buildah using `backend/Dockerfile`
-4. Pushes to `ghcr.io/unusualfor/mix-ml-backend` with two tags: `git-<short-sha>` (immutable) and `latest` (mobile)
-5. Updates `manifests/base/kustomization.yaml` with a Kustomize `images:` override referencing the new immutable tag
-6. Commits and pushes the manifest update to `main`
-
-ArgoCD detects the manifest change at the next refresh and shows the application as `OutOfSync`. Sync is manual: review the change in the ArgoCD UI, click **Sync**, verify pods restart with the new image.
-
-### One-time setup
-
-After Slice 1 is complete, run:
-
-```bash
-# Bootstrap CI resources (namespace, SA, RBAC, tasks, pipeline)
-bash scripts/bootstrap-ci.sh
-
-# Configure secrets (needs GitHub PAT with repo + write:packages scope)
-export GITHUB_USERNAME=unusualfor
-export GITHUB_TOKEN=ghp_...
-bash scripts/setup-ci-secrets.sh
-```
-
-### Triggering a build manually
-
-```bash
-bash scripts/build-backend.sh
-```
-
-The script reads the current git branch via `git branch --show-current`; commit and push any local changes before triggering. `--showlog` streams the pipeline output live.
-
-Once the pipeline succeeds:
-- The new image is on `ghcr.io` with tags `git-<sha>` + `latest`
-- `manifests/base/kustomization.yaml` has been updated in the repo
-- ArgoCD shows `OutOfSync` — sync manually from the UI
-
-### Watching the pipeline
-
-- OpenShift console → **Pipelines** → namespace `mix-ml-ci` → `backend-ci` pipeline
-- Or via CLI:
-  ```bash
-  tkn pipelinerun list -n mix-ml-ci
-  tkn pipelinerun logs <name> -f -n mix-ml-ci
-  ```
-
-### Validating the CI setup
-
-```bash
-bash tests/test_backend_ci.sh
-```
-
-### Common failure modes
-
-| Failure | Cause | Fix |
-|---------|-------|-----|
-| `lint-and-test` fails | Code has lint errors or test failures | Fix locally, commit, re-run |
-| `build-and-push` auth error | `ghcr-credentials` expired or missing | Re-run `setup-ci-secrets.sh` |
-| `update-manifest` git push error | `github-credentials` expired or PAT lacks `repo` scope | Re-run `setup-ci-secrets.sh` with new PAT |
-| ArgoCD doesn't show OutOfSync | Polling interval ~3 min | Click **Refresh** in UI |
-
 ### Why manual sync and not auto-sync?
 
 This iteration uses manual ArgoCD sync deliberately: it keeps a human in the loop between "image built" and "image deployed", which is useful for portfolio-grade demos and for catching mistakes. Production setups often enable auto-sync with retries — straightforward change to `Application` spec, deferred to a future iteration.
+
+### Future enhancements (out of scope for this iteration)
+
+This iteration delivers a complete but minimal GitOps workflow. The following enhancements are deliberately not implemented, documented for transparency and as a roadmap:
+
+**Security & secrets**
+- Sealed Secrets or External Secrets Operator (current: placeholder + setup script)
+- Image scanning (Trivy, Sysdig, Red Hat ACS)
+- SBOM generation in pipeline
+- Pod Security Standards enforcement
+- NetworkPolicy isolation between namespaces
+
+**Deployment patterns**
+- Multi-environment (dev/staging/prod) via overlay promotion
+- Auto-sync with retry policies and self-heal
+- Blue-green or canary deployments via Argo Rollouts
+- Multi-cluster GitOps with ApplicationSet
+
+**CI/CD**
+- Webhook-triggered pipelines (requires cluster ingress, not available on CRC)
+- Multi-arch image builds (arm64 + amd64)
+- Pull-request-based workflow with required reviews
+- Slack/email notifications on pipeline status
+- Cached layer builds for faster iteration
+
+**Observability**
+- Prometheus + Grafana dashboards for application metrics
+- Loki for centralized logging
+- Distributed tracing (OpenTelemetry)
+- Alert routing (AlertManager → PagerDuty/Slack)
+
+**Governance**
+- Policy-as-code (Kyverno, OPA Gatekeeper)
+- Cost monitoring (Kubecost)
+- Compliance scanning (Red Hat ACM)
+
+These are intentionally deferred to keep the current iteration focused on the GitOps fundamentals demonstrable on a single CRC node.
 
 ## Scraper
 

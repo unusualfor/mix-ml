@@ -13,3 +13,4 @@ resources:
   - tasks/buildah-build-push.yaml
   - tasks/update-manifest.yaml
   - pipelines/backend-ci.yaml
+  - pipelines/frontend-ci.yaml

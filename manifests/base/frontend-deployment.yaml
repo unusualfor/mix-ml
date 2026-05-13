@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/unusualfor/mix-ml-frontend:v0.1.0
+          image: ghcr.io/unusualfor/mix-ml-frontend
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

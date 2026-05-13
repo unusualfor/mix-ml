@@ -1,5 +1,6 @@
 # Update manifests/base/kustomization.yaml with the new image tag,
 # then commit and push to the repo.
+# Reusable across apps via image-name and app-name params.
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
@@ -19,6 +20,10 @@ spec:
     - name: git-branch
       type: string
       default: main
+    - name: app-name
+      type: string
+      default: backend
+      description: "Human-readable app name for commit message (e.g. backend, frontend)"
   workspaces:
     - name: source
       description: Cloned repo workspace (must have git credentials configured)
@@ -58,6 +63,8 @@ spec:
           value: "$(params.new-tag)"
         - name: GIT_BRANCH
           value: "$(params.git-branch)"
+        - name: APP_NAME
+          value: "$(params.app-name)"
       script: |
         #!/usr/bin/env sh
         set -eu
@@ -69,6 +76,6 @@ spec:
           echo "No changes to commit"
           exit 0
         fi
-        git commit -m "ci: bump backend image to ${NEW_TAG}"
+        git commit -m "ci: bump ${APP_NAME} image to ${NEW_TAG}"
         git push origin "HEAD:${GIT_BRANCH}"
-        echo "Pushed manifest update for ${NEW_TAG}"
+        echo "Pushed manifest update for ${APP_NAME} ${NEW_TAG}"

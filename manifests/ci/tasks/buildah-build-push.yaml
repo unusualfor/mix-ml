@@ -1,4 +1,5 @@
 # Build and push container image with Buildah.
+# Reusable across apps via app-path param.
 # Produces two tags: git-<sha> (immutable) + latest (mobile).
 apiVersion: tekton.dev/v1
 kind: Task
@@ -16,12 +17,10 @@ spec:
     - name: image-tag
       type: string
       description: "Immutable tag (e.g. git-abc1234)"
-    - name: dockerfile
-      type: string
-      default: backend/Dockerfile
-    - name: context
+    - name: app-path
       type: string
       default: backend
+      description: Subdirectory containing the app and Dockerfile
   workspaces:
     - name: source
       description: Cloned repo workspace
@@ -40,9 +39,9 @@ spec:
         - name: IMAGE
           value: "$(params.image-name):$(params.image-tag)"
         - name: DOCKERFILE
-          value: "$(params.dockerfile)"
+          value: "$(params.app-path)/Dockerfile"
         - name: CONTEXT
-          value: "$(params.context)"
+          value: "$(params.app-path)"
       script: |
         #!/usr/bin/env bash
         set -eu
