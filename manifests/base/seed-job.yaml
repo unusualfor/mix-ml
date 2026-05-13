@@ -54,13 +54,6 @@ spec:
             - /bin/sh
             - -c
             - |
-              echo "Checking if database is already seeded..."
-              COUNT=$(psql -h postgres -U "$POSTGRESQL_USER" -d cocktails \
-                -tAc "SELECT COUNT(*) FROM ingredient_class" 2>/dev/null || echo "0")
-              if [ "$COUNT" -gt 0 ] 2>/dev/null; then
-                echo "DB already seeded ($COUNT classes found), skipping."
-                exit 0
-              fi
               echo "Applying seed.sql..."
               psql -h postgres -U "$POSTGRESQL_USER" -d cocktails \
                 -f /seed/seed.sql -v ON_ERROR_STOP=1

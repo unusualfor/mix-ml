@@ -137,9 +137,23 @@ COMMODITY_NAMES: set[str] = {
 }
 
 # ---------------------------------------------------------------------------
-# Bottles (placeholder — to be populated)
+# Bottles — loaded from scripts/data/bottles_seed.json
 # ---------------------------------------------------------------------------
-BOTTLES: list[dict] = []
+_bottles_path = Path(__file__).parent / "data" / "bottles_seed.json"
+if _bottles_path.exists():
+    with open(_bottles_path, encoding="utf-8") as _f:
+        BOTTLES: list[dict] = [
+            {
+                "class": b["class_name"],
+                "brand": b["brand"],
+                "label": b.get("label"),
+                "abv": b.get("abv"),
+                "flavor": b.get("flavor_profile", {}),
+            }
+            for b in json.load(_f)
+        ]
+else:
+    BOTTLES: list[dict] = []
 
 # ---------------------------------------------------------------------------
 # Glass extraction patterns (order matters — first match wins)
