@@ -24,51 +24,92 @@ a flavor-distance engine, a substitution recommender, and a web UI.
 
 ## Quick Start
 
-### Prerequisites
+### Option A — OpenShift GitOps (official)
 
-- Python 3.11+
-- PostgreSQL 16 (via CRC port-forward or local)
-- `oc` CLI (for CRC deployments)
+The canonical deployment runs on **OpenShift Local (CRC)** with ArgoCD managing the full lifecycle. DB seeding happens automatically via a PostSync hook on every sync.
 
-### Backend
+**Prerequisites:** OpenShift Local (CRC) running (~16 GB RAM), `oc` CLI logged in as `kubeadmin`, a GitHub PAT with `repo` + `write:packages` scope.
 
 ```bash
+# 1. Set secrets
+export POSTGRES_PASSWORD=$(openssl rand -base64 24)
+export POSTGRES_ADMIN_PASSWORD=$(openssl rand -base64 24)
+export GITHUB_USERNAME=unusualfor
+export GITHUB_TOKEN=ghp_...
+bash scripts/setup-secrets.sh
+
+# 2. Bootstrap ArgoCD + Application
+bash scripts/bootstrap-gitops.sh
+
+# 3. Open ArgoCD UI (URL from script output), click Sync on mix-ml
+
+# 4. Bootstrap CI pipelines (optional, for image builds)
+bash scripts/bootstrap-ci.sh
+bash scripts/setup-ci-secrets.sh
+```
+
+After sync, the PostSync hook seeds Postgres automatically with 102 IBA recipes and 42 bottles. App is live at the OpenShift Route printed by `oc get route -n mix-ml`.
+
+### Option B — Podman / Docker Compose (lightweight)
+
+Run everything locally with a single command. No Kubernetes required.
+
+```bash
+podman compose up -d      # or: docker compose up -d
+```
+
+This starts Postgres 16, backend (FastAPI), and frontend (HTMX) as containers. Postgres is seeded automatically from `db/seed.sql` on first boot.
+
+| Service  | URL                    |
+|----------|------------------------|
+| Frontend | http://localhost:3000   |
+| Backend  | http://localhost:8080   |
+| Postgres | localhost:5432          |
+
+To rebuild after code changes:
+
+```bash
+podman compose up -d --build
+```
+
+To tear down (data persists in volume):
+
+```bash
+podman compose down           # keep data
+podman compose down -v        # wipe data + re-seed on next up
+```
+
+### Option C — Bare-metal (development)
+
+For hacking on individual components without containers.
+
+**Prerequisites:** Python 3.11+, a running PostgreSQL 16 instance seeded with `db/seed.sql`.
+
+```bash
+# Backend
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
-# Port-forward to CRC DB (from WSL2, use Windows oc.exe)
-/mnt/c/Users/<user>/.crc/bin/oc/oc.exe port-forward svc/postgres 5432:5432 \
-  -n mix-ml --address 0.0.0.0 &
-
-export DATABASE_URL="postgresql+psycopg://cocktailuser:<password>@localhost:5432/cocktails"
+export DATABASE_URL="postgresql+psycopg://cocktailuser:cocktail@localhost:5432/cocktails"
 uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
-```
 
-### Frontend
-
-```bash
+# Frontend (separate terminal)
 cd frontend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
-BACKEND_URL="http://localhost:8080" uvicorn app.main:app \
-  --host 0.0.0.0 --port 3000 --reload
+BACKEND_URL="http://localhost:8080" uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
 ```
-
-Open http://localhost:3000.
 
 ### Tests
 
 ```bash
-# Backend (requires live DB)
-cd backend && pytest tests/ -v    # 104 tests
-
-# Frontend (no live backend needed)
-cd frontend && pytest tests/ -v   # 80 tests
+cd backend  && pytest tests/ -v    # 104 tests (requires live DB)
+cd frontend && pytest tests/ -v    # 80 tests  (no live backend needed)
 ```
 
-## Deployment & GitOps
+## Deployment & GitOps (detailed)
+
+> **Quick version**: see [Option A](#option-a--openshift-gitops-official) above. This section covers the architecture and daily workflows in depth.
 
 ### Architecture
 
@@ -123,47 +164,9 @@ Key design decisions:
 The system runs on OpenShift Local (CRC), managed via ArgoCD (Red Hat OpenShift GitOps).
 ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes go through Git.
 
-### Prerequisites
+### Prerequisites & Bootstrap
 
-- OpenShift Local (CRC) running, ~16 GB RAM allocated
-- `oc` CLI logged in as `kubeadmin` (cluster-admin)
-- `git`, `bash`, and `tkn` CLI
-
-### One-Time Bootstrap
-
-1. **Set required environment variables:**
-   ```bash
-   export POSTGRES_PASSWORD=$(openssl rand -base64 24)
-   export POSTGRES_ADMIN_PASSWORD=$(openssl rand -base64 24)
-   export GITHUB_USERNAME=unusualfor
-   export GITHUB_TOKEN=ghp_...   # PAT with repo + write:packages scope
-   ```
-
-2. **Set up secrets in cluster:**
-   ```bash
-   bash scripts/setup-secrets.sh
-   ```
-
-3. **Install operators + create ArgoCD Application:**
-   ```bash
-   bash scripts/bootstrap-gitops.sh
-   ```
-
-4. **Open ArgoCD UI** (URL printed by the script). Username: `admin`, password from script output.
-
-5. **Find the `mix-ml` Application. Click "Sync" to deploy.**
-
-6. **Once pods are healthy, seed the database:**
-   ```bash
-   oc apply -f manifests/base/seed-job.yaml -n mix-ml
-   oc wait --for=condition=complete job/postgres-seed -n mix-ml --timeout=180s
-   ```
-
-7. **Bootstrap CI pipelines:**
-   ```bash
-   bash scripts/bootstrap-ci.sh
-   bash scripts/setup-ci-secrets.sh
-   ```
+See [Option A — OpenShift GitOps](#option-a--openshift-gitops-official) in Quick Start.
 
 ### Daily Workflow
 
@@ -205,36 +208,21 @@ Same as above but `bash scripts/build-frontend.sh`.
 3. In ArgoCD UI, click "Refresh" then "Sync" on the `mix-ml` Application.
 4. Verify resources are healthy.
 
-#### Database Seeding (Manual Operation)
+#### Database Seeding
 
-The database is seeded from `db/seed.sql`, generated from the source data.
-This is intentionally manual — data changes are infrequent and high-impact.
+Seeding is **automatic** — an ArgoCD PostSync hook runs `db/seed.sql` on every sync. The SQL is idempotent (drops and recreates all tables).
 
-**When to re-seed:** adding bottles, updating IBA recipes, schema changes.
-
-**How to re-seed:**
+**To update seed data** (e.g. add bottles, fix recipes):
 
 ```bash
-# 1. Regenerate seed.sql
+# 1. Edit scripts/data/bottles_seed.json or iba_cocktails_normalized.json
+# 2. Regenerate seed.sql
 cd scripts && python generate_seed_sql.py data/iba_cocktails_normalized.json
 
-# 2. Wipe existing tables
-oc exec deploy/postgres -n mix-ml -- psql -U cocktailuser -d cocktails -c "
-  DROP TABLE IF EXISTS recipe_ingredient CASCADE;
-  DROP TABLE IF EXISTS bottle CASCADE;
-  DROP TABLE IF EXISTS recipe CASCADE;
-  DROP TABLE IF EXISTS ingredient_class CASCADE;"
+# 3. Copy to all locations
+cp seed.sql ../manifests/base/seed.sql && cp seed.sql ../db/seed.sql
 
-# 3. Re-trigger the seed job
-oc delete job postgres-seed -n mix-ml --ignore-not-found
-oc apply -f manifests/base/seed-job.yaml -n mix-ml
-
-# 4. Verify counts
-oc exec deploy/postgres -n mix-ml -- psql -U cocktailuser -d cocktails -c "
-  SELECT 'classes', COUNT(*) FROM ingredient_class
-  UNION ALL SELECT 'recipes', COUNT(*) FROM recipe
-  UNION ALL SELECT 'ingredients', COUNT(*) FROM recipe_ingredient
-  UNION ALL SELECT 'bottles', COUNT(*) FROM bottle;"
+# 4. Commit, push, sync in ArgoCD — PostSync hook re-seeds automatically
 ```
 
 ## CI/CD: Application Pipelines
