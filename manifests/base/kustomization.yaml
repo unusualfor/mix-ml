@@ -33,6 +33,6 @@ generatorOptions:
 
 images:
   - name: ghcr.io/unusualfor/mix-ml-backend
-    newTag: v0.1.0
+    newTag: v1.0.0
   - name: ghcr.io/unusualfor/mix-ml-frontend
-    newTag: v0.1.0
+    newTag: v1.0.0
