@@ -176,8 +176,7 @@ INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES 
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Amaro Formidabile', (SELECT id FROM ingredient_class WHERE name = 'Amaro'), FALSE, FALSE);
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Amaro Alpino', (SELECT id FROM ingredient_class WHERE name = 'Amaro'), FALSE, FALSE);
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Cynar', (SELECT id FROM ingredient_class WHERE name = 'Amaro'), FALSE, FALSE);
-INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Fernet (generic)', (SELECT id FROM ingredient_class WHERE name = 'Amaro'), FALSE, FALSE);
-INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Fernet Branca', (SELECT id FROM ingredient_class WHERE name = 'Amaro'), FALSE, FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Fernet', (SELECT id FROM ingredient_class WHERE name = 'Amaro'), FALSE, FALSE);
 
 -- Liqueur
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Triple Sec', (SELECT id FROM ingredient_class WHERE name = 'Liqueur'), FALSE, FALSE);
@@ -274,6 +273,10 @@ INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES 
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Seasoning Mix (Bloody Mary)', (SELECT id FROM ingredient_class WHERE name = 'Misc'), FALSE, FALSE);
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Donn''s Mix', (SELECT id FROM ingredient_class WHERE name = 'Misc'), FALSE, FALSE);
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Water', (SELECT id FROM ingredient_class WHERE name = 'Misc'), FALSE, TRUE);
+
+-- Fernet (sub-children)
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Fernet (generic)', (SELECT id FROM ingredient_class WHERE name = 'Fernet'), FALSE, FALSE);
+INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Fernet Branca', (SELECT id FROM ingredient_class WHERE name = 'Fernet'), FALSE, FALSE);
 
 -- Garnish
 INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) VALUES ('Lemon Wheel', (SELECT id FROM ingredient_class WHERE name = 'Garnish'), TRUE, FALSE);
@@ -572,7 +575,7 @@ INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, i
 -- Hanky Panky
 INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, is_garnish, alternative_group_id, raw_name, notes) VALUES ((SELECT id FROM recipe WHERE name = 'Hanky Panky'), (SELECT id FROM ingredient_class WHERE name = 'London Dry Gin'), 45, 'ml', FALSE, FALSE, NULL, 'London Dry Gin', NULL);
 INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, is_garnish, alternative_group_id, raw_name, notes) VALUES ((SELECT id FROM recipe WHERE name = 'Hanky Panky'), (SELECT id FROM ingredient_class WHERE name = 'Vermouth Rosso'), 45, 'ml', FALSE, FALSE, NULL, 'Sweet Red Vermouth', NULL);
-INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, is_garnish, alternative_group_id, raw_name, notes) VALUES ((SELECT id FROM recipe WHERE name = 'Hanky Panky'), (SELECT id FROM ingredient_class WHERE name = 'Fernet Branca'), 7.5, 'ml', FALSE, FALSE, NULL, 'Fernet Branca', NULL);
+INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, is_garnish, alternative_group_id, raw_name, notes) VALUES ((SELECT id FROM recipe WHERE name = 'Hanky Panky'), (SELECT id FROM ingredient_class WHERE name = 'Fernet (generic)'), 7.5, 'ml', FALSE, FALSE, NULL, 'Fernet', NULL);
 -- Hemingway Special
 INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, is_garnish, alternative_group_id, raw_name, notes) VALUES ((SELECT id FROM recipe WHERE name = 'Hemingway Special'), (SELECT id FROM ingredient_class WHERE name = 'Rum (generic)'), 60, 'ml', FALSE, FALSE, NULL, 'Rum', NULL);
 INSERT INTO recipe_ingredient (recipe_id, class_id, amount, unit, is_optional, is_garnish, alternative_group_id, raw_name, notes) VALUES ((SELECT id FROM recipe WHERE name = 'Hemingway Special'), (SELECT id FROM ingredient_class WHERE name = 'Fresh Grapefruit Juice'), 40, 'ml', FALSE, FALSE, NULL, 'Grapefruit Juice', NULL);

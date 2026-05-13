@@ -60,7 +60,7 @@ HIERARCHY: dict[str, list[str]] = {
     ],
     "Amaro": [
         "Amaro Nonino", "Amaro Montenegro", "Amaro Formidabile",
-        "Amaro Alpino", "Cynar", "Fernet (generic)", "Fernet Branca",
+        "Amaro Alpino", "Cynar", "Fernet",
     ],
     "Liqueur": [
         "Triple Sec", "Cointreau", "Grand Marnier", "Orange Curaçao",
@@ -104,6 +104,13 @@ HIERARCHY: dict[str, list[str]] = {
         "Orange Flower Water", "Worcestershire Sauce",
         "Seasoning Mix (Bloody Mary)", "Donn's Mix", "Water",
     ],
+}
+
+# ---------------------------------------------------------------------------
+# Sub-parents: intermediate nodes that are children AND parents
+# ---------------------------------------------------------------------------
+SUB_HIERARCHY: dict[str, list[str]] = {
+    "Fernet": ["Fernet (generic)", "Fernet Branca"],
 }
 
 GARNISH_CHILDREN: list[str] = [
@@ -301,13 +308,16 @@ CREATE INDEX idx_bottle_class ON bottle(class_id);
 def generate(recipes: list[dict]) -> str:
     lines: list[str] = [DDL]
 
-    # Collect all known classes (from hierarchy + garnish)
+    # Collect all known classes (from hierarchy + sub-hierarchy + garnish)
     all_parents: list[str] = list(HIERARCHY.keys()) + ["Garnish"]
     # Build child→parent lookup
     child_to_parent: dict[str, str] = {}
     for parent, children in HIERARCHY.items():
         for child in children:
             child_to_parent[child] = parent
+    for sub_parent, sub_children in SUB_HIERARCHY.items():
+        for child in sub_children:
+            child_to_parent[child] = sub_parent
     for g in GARNISH_CHILDREN:
         child_to_parent[g] = "Garnish"
 
@@ -365,6 +375,18 @@ def generate(recipes: list[dict]) -> str:
             lines.append(
                 f"INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) "
                 f"VALUES ({sql_str(child)}, {class_subquery(parent_name)}, {is_g}, {is_c});"
+            )
+            count_leaf += 1
+
+    # Sub-hierarchy children (intermediate parents that are also children)
+    for sub_parent, sub_children in SUB_HIERARCHY.items():
+        lines.append("")
+        lines.append(f"-- {sub_parent} (sub-children)")
+        for child in sub_children:
+            is_c = sql_bool(child in COMMODITY_NAMES)
+            lines.append(
+                f"INSERT INTO ingredient_class (name, parent_id, is_garnish, is_commodity) "
+                f"VALUES ({sql_str(child)}, {class_subquery(sub_parent)}, FALSE, {is_c});"
             )
             count_leaf += 1
 
