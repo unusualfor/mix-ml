@@ -21,6 +21,7 @@ services:
       retries: 10
 
   backend:
+    image: ghcr.io/unusualfor/mix-ml-backend:v1.0.0
     build:
       context: ./backend
     environment:
@@ -32,6 +33,7 @@ services:
         condition: service_healthy
 
   frontend:
+    image: ghcr.io/unusualfor/mix-ml-frontend:v1.0.0
     build:
       context: ./frontend
     environment:
