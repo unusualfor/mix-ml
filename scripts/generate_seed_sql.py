@@ -141,6 +141,9 @@ COMMODITY_NAMES: set[str] = {
     "Salt", "Cloves", "Vanilla Extract", "Water", "Worcestershire Sauce",
     # Coffee
     "Hot Coffee", "Espresso",
+    # Wine (kept at home, not tracked as bottles)
+    "Dry White Wine", "Red Wine", "Champagne", "Prosecco",
+    "Sparkling Wine (generic)",
 }
 
 # ---------------------------------------------------------------------------

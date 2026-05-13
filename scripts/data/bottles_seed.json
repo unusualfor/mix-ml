@@ -754,6 +754,32 @@
     "notes": "Mash 74/18/8, sourced kentucky bourbon"
   },
   {
+    "class_name": "Bourbon (generic)",
+    "brand": "Buffalo Trace",
+    "label": "Colonel E.H. Taylor Small Batch",
+    "abv": 50.0,
+    "on_hand": true,
+    "flavor_profile": {
+      "sweet": 4,
+      "bitter": 2,
+      "sour": 1,
+      "citrusy": 1,
+      "fruity": 3,
+      "herbal": 1,
+      "floral": 1,
+      "spicy": 3,
+      "smoky": 1,
+      "vanilla": 4,
+      "woody": 3,
+      "minty": 1,
+      "earthy": 2,
+      "umami": 0,
+      "body": 4,
+      "intensity": 4
+    },
+    "notes": "Bottled in Bond, Buffalo Trace Mashbill #1"
+  },
+  {
     "class_name": "Wheated Bourbon",
     "brand": "Ragged Branch",
     "label": "Wheated Bourbon",
