@@ -36,10 +36,22 @@ services:
       context: ./frontend
     environment:
       BACKEND_URL: "http://backend:8080"
-    ports:
-      - "3000:8080"
     depends_on:
       - backend
 
+  caddy:
+    image: docker.io/library/caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
