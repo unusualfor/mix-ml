@@ -1,81 +1,140 @@
-# Scripts
+# Scripts & Tools
 
-Pipeline tools and offline analysis. All scripts live here along with their
-input data (`data/`) and generated reports (`reports/`).
+Offline tools for building, analyzing, and calibrating the mix-ml platform.
 
-## Structure
+**For overview, quick start, and full workflow, see the [root README](../README.md).**
+
+## Overview
 
 ```
 scripts/
-├── scrape_iba.py              # IBA recipe scraper
-├── analyze_iba.py             # Descriptive reports from scraped JSON
-├── generate_seed_sql.py       # Builds seed.sql from normalized JSON + taxonomy
-├── flavor_matrix.py           # Offline pairwise flavor-distance heatmap
-├── requirements-scripts.txt   # Scientific deps for flavor_matrix.py
+├── scrape_iba.py              # Download all 102 IBA recipes from iba-world.com
+├── analyze_iba.py             # Generate descriptive reports from recipes
+├── generate_seed_sql.py       # Build seed.sql from normalized JSON + bottles
+├── calibrate_clusters.py      # Tune DBSCAN, match cluster impressions
+├── flavor_matrix.py           # Offline pairwise flavor distance heatmap
+├── requirements-scripts.txt   # Dependencies: scipy, numpy, scikit-learn
 ├── data/
-│   ├── iba_cocktails.json           # Raw scraper output (102 recipes)
-│   ├── iba_cocktails_normalized.json # Normalized ingredient names
-│   ├── taxonomy_classes.csv         # Ingredient class taxonomy
-│   └── bottles_seed.json           # Personal bottle inventory seed
-├── reports/
-│   ├── report_ingredient_frequency.csv
-│   ├── report_unit_inventory.csv
-│   ├── report_amount_anomalies.txt
-│   ├── report_ingredient_clusters.txt
-│   └── report_summary.md
-├── output/                    # flavor_matrix.py output (gitignored)
-└── seed.sql                   # Generated seed SQL (canonical copy in db/)
+│   ├── bottles_seed.json           # Your bottle inventory (EDIT THIS)
+│   ├── iba_cocktails.json          # Raw scraper output
+│   ├── iba_cocktails_normalized.json
+│   └── taxonomy_classes.csv
+├── output/                    # Transient files (gitignored)
+└── seed.sql                   # Generated database seed
 ```
+
+## Seed Generation (Main Workflow)
+
+To update your bottle collection:
+
+```bash
+# 1. Edit bottles_seed.json with your bottles
+vim scripts/data/bottles_seed.json
+
+# 2. Regenerate seed.sql
+cd scripts
+python generate_seed_sql.py data/bottles_seed.json data/iba_cocktails_normalized.json
+
+# 3. Update database
+cp seed.sql ../db/seed.sql
+docker compose down -v && docker compose up -d
+```
+
+The seed SQL is idempotent — safe to run multiple times.
+
+## Calibration (After Major Bottle Changes)
+
+When you add/remove many bottles, UMAP and DBSCAN will discover different clusters. Recalibrate:
+
+```bash
+# Start backend if not already running
+docker compose up -d backend
+
+# Generate new cluster compositions (preserves existing impressions where possible)
+python calibrate_clusters.py --backend-url http://localhost:8080 --write
+
+# Edit cluster_impressions.json: replace "TODO" lines with real descriptions
+# Example: "Extreme botanicals" instead of "TODO: Cluster 0"
+
+# Rebuild frontend to load new impressions
+docker compose up -d --build frontend
+```
+
+To tune DBSCAN if clusters look wrong:
+
+```bash
+python calibrate_clusters.py --eps 0.7 --backend-url http://localhost:8080 --write
+```
+
+Typical `eps` range for 30–80 bottles: 0.4–0.8. Larger = fewer clusters.
 
 ## Scraper
 
+Download all 102 IBA recipes from [iba-world.com](https://iba-world.com):
+
 ```bash
-cd scripts
 python scrape_iba.py
-# Output: data/iba_cocktails.json (idempotent — skips existing recipes)
+# Output: data/iba_cocktails.json
+
+# Idempotent — skips recipes already present
+```
+
+**Output format:**
+```json
+{
+  "name": "Margarita",
+  "category": "contemporary",
+  "ingredients": [
+    {"amount": 45, "unit": "ml", "name": "Tequila"},
+    {"amount": 30, "unit": "ml", "name": "Cointreau"}
+  ],
+  "method": "Shake with ice and strain",
+  "garnish": "Lime wheel"
+}
 ```
 
 ## Analyzer
 
+Generate descriptive reports from IBA recipes:
+
 ```bash
-cd scripts
 python analyze_iba.py data/iba_cocktails.json
-# Output: 5 reports in current directory
 ```
 
-## Seed Generator
+**Output files:**
+- `report_ingredient_frequency.csv` — ingredient frequency + recipe lists
+- `report_unit_inventory.csv` — units of measure (ml, dash, bar spoon, etc.)
+- `report_amount_anomalies.txt` — null/zero/non-numeric amounts
+- `report_ingredient_clusters.txt` — name-similarity groups (merge candidates)
+- `report_summary.md` — overview (categories, top-20 ingredients, techniques)
+
+No dependencies beyond Python stdlib.
+
+## Flavor Matrix (Advanced)
+
+Offline computation of N×N flavor distance matrix with clustering visualization:
 
 ```bash
-cd scripts
-python generate_seed_sql.py data/iba_cocktails_normalized.json
-# Output: seed.sql in current directory
-```
-
-## Flavor Matrix
-
-Requires the backend virtualenv and scientific dependencies.
-
-```bash
+# Requires backend venv + scientific deps
 cd backend && source .venv/bin/activate
 pip install -r ../scripts/requirements-scripts.txt
 
-# From repo root, with port-forward to DB
+# Run from repo root with live backend
 PYTHONPATH=backend \
-DATABASE_URL="postgresql+psycopg://cocktailuser:<password>@localhost:5432/cocktails" \
+BACKEND_URL="http://localhost:8080" \
 python scripts/flavor_matrix.py
 ```
 
-Optional flags:
+**Options:**
+- `--backend-url URL` (default from env var)
+- `--cluster-threshold 0.25` (distance cut-off for clustering)
+- `--output-dir output/` (where to save results)
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--db-url` | `$DATABASE_URL` | SQLAlchemy connection string |
-| `--cluster-threshold` | `0.25` | Distance cut-off for flat clustering |
+**Output (in `output/`, gitignored):**
+- `flavor_matrix.csv` — N×N symmetric distance matrix
+- `flavor_matrix.png` — clustered heatmap visualization
+- `flavor_clusters.txt` — cluster membership + inter-cluster bridges
 
-Outputs (in `scripts/output/`, gitignored):
+---
 
-| File | Description |
-|------|-------------|
-| `flavor_matrix.csv` | N×N symmetric distance matrix |
-| `flavor_matrix.png` | Clustered heatmap (hierarchical, average linkage) |
-| `flavor_clusters.txt` | Cluster membership, inter-cluster bridges, anomalies |
+See [root README](../README.md) for full workflow, quick start, and calibration details.

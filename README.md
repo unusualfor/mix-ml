@@ -1,393 +1,575 @@
-# Mix/ML — Cocktail Intelligence Platform
+# Mix/ML — ML-assisted bar intelligence platform
 
-A data-driven cocktail platform built on the 102 official IBA recipes.
-Scrapes, normalizes, stores, and serves cocktail data through a REST API,
-a flavor-distance engine, a substitution recommender, and a web UI.
+A data-driven cocktail platform with inventory management, interactive flavor mapping, and AI-assisted optimization. Built on 102 official IBA recipes with support for custom bottle collections.
+
+## Key Features
+
+- **2D Flavor Map** — Interactive scatter plot with UMAP dimensionality reduction and DBSCAN clustering. Hover to explore, toggle between cluster and family coloring.
+- **Heatmap** — N×N flavor distance matrix with hierarchical clustering for quick visual similarity analysis.
+- **Cocktail Feasibility** — Know which drinks you can make right now from your current inventory.
+- **Smart Substitutions** — When you're missing an ingredient, find the closest alternative from your bottles ranked by flavor similarity.
+- **Shopping Optimizer** — Multi-step ILP-based planner: given a budget of K bottles, find the optimal purchase to unlock the most new recipes.
+- **Inventory Management** — Organize your bottles by family, view expanded flavor profiles, search by flavor dimension.
 
 ## Architecture
 
 ```
-┌─────────────┐      ┌──────────────┐      ┌──────────────┐
-│  Frontend   │─────▶│   Backend    │─────▶│ PostgreSQL   │
-│  port 3000  │ HTTP │   port 8080  │  SQL │     16       │
-│  HTMX+Jinja │      │   FastAPI    │      │  (CRC/OCP)   │
-└─────────────┘      └──────────────┘      └──────────────┘
+┌──────────────────────────────────────────┐
+│  Frontend (FastAPI + HTMX + Jinja2)      │
+│  Port 3000 | 2D Map · Inventory · IBA    │
+└────────────────┬─────────────────────────┘
+                 │ HTTP
+┌────────────────▼─────────────────────────┐
+│  Backend (FastAPI + SQLAlchemy)          │
+│  Port 8080 | REST API · Flavor Distance  │
+└────────────────┬─────────────────────────┘
+                 │ SQL
+┌────────────────▼─────────────────────────┐
+│  PostgreSQL 16                           │
+│  102 IBA recipes + Your bottle inventory │
+└──────────────────────────────────────────┘
 ```
-
-| Component | Path | Description |
-|-----------|------|-------------|
-| Backend API | `backend/` | FastAPI REST API — recipes, bottles, feasibility, flavor distance, substitutions, shopping optimizer |
-| Frontend | `frontend/` | FastAPI + Jinja2 + HTMX web UI — cocktail browser, inventory, flavor map, substitution explorer |
-| Manifests | `manifests/` | Kustomize manifests + ArgoCD Application for OpenShift Local (CRC) |
-| Scripts | `scripts/` | Pipeline tools (scraper, analyzer, seed generator), GitOps bootstrap |
-| Database | `db/` | Canonical `seed.sql` for deployment |
 
 ## Quick Start
 
-### Option A — OpenShift GitOps (official)
-
-The canonical deployment runs on **OpenShift Local (CRC)** with ArgoCD managing the full lifecycle. DB seeding happens automatically via a PostSync hook on every sync.
-
-**Prerequisites:** OpenShift Local (CRC) running (~16 GB RAM), `oc` CLI logged in as `kubeadmin`, a GitHub PAT with `repo` + `write:packages` scope.
+### Option 1: Docker Compose (simplest)
 
 ```bash
-# 1. Set secrets
-export POSTGRES_PASSWORD=$(openssl rand -base64 24)
-export POSTGRES_ADMIN_PASSWORD=$(openssl rand -base64 24)
-export GITHUB_USERNAME=unusualfor
-export GITHUB_TOKEN=ghp_...
-bash scripts/setup-secrets.sh
-
-# 2. Bootstrap ArgoCD + Application
-bash scripts/bootstrap-gitops.sh
-
-# 3. Open ArgoCD UI (URL from script output), click Sync on mix-ml
-
-# 4. Bootstrap CI pipelines (optional, for image builds)
-bash scripts/bootstrap-ci.sh
-bash scripts/setup-ci-secrets.sh
+docker compose up -d
 ```
 
-After sync, the PostSync hook seeds Postgres automatically with 102 IBA recipes and 42 bottles. App is live at the OpenShift Route printed by `oc get route -n mix-ml`.
-
-### Option B — Podman / Docker Compose (lightweight)
-
-Run everything locally with a single command. No Kubernetes required.
-
-```bash
-podman compose up -d      # or: docker compose up -d
-```
-
-This starts Postgres 16, backend (FastAPI), and frontend (HTMX) as containers. Postgres is seeded automatically from `db/seed.sql` on first boot.
-
-| Service  | URL                    |
-|----------|------------------------|
-| Frontend | http://localhost:3000   |
-| Backend  | http://localhost:8080   |
-| Postgres | localhost:5432          |
+This starts:
+- **Frontend**: http://localhost:3000
+- **Backend**: http://localhost:8080  
+- **PostgreSQL**: Automatically seeded with IBA recipes + default bottles
 
 To rebuild after code changes:
-
 ```bash
-podman compose up -d --build
+docker compose up -d --build
 ```
 
-To tear down (data persists in volume):
-
+To reset data and reseed:
 ```bash
-podman compose down           # keep data
-podman compose down -v        # wipe data + re-seed on next up
+docker compose down -v && docker compose up -d
 ```
 
-### Option C — Bare-metal (development)
+### Option 2: Local Development
 
-For hacking on individual components without containers.
-
-**Prerequisites:** Python 3.11+, a running PostgreSQL 16 instance seeded with `db/seed.sql`.
+Prerequisites: Python 3.11+, PostgreSQL 16 running with `db/seed.sql` loaded.
 
 ```bash
-# Backend
+# Backend (terminal 1)
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 export DATABASE_URL="postgresql+psycopg://cocktailuser:cocktail@localhost:5432/cocktails"
-uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+uvicorn app.main:app --port 8080 --reload
 
-# Frontend (separate terminal)
+# Frontend (terminal 2)
 cd frontend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-BACKEND_URL="http://localhost:8080" uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
+BACKEND_URL="http://localhost:8080" uvicorn app.main:app --port 3000 --reload
 ```
 
-### Tests
+Backend API docs: http://localhost:8080/docs
+
+### Option 3: OpenShift Local (CRC) with GitOps
+
+For production-grade deployment with ArgoCD, see [OpenShift GitOps Setup](#openshift-gitops-setup-advanced) below.
+
+## Getting Started With Your Own Bottles
+
+This repo comes with ~42 default bottles. To adapt it to your personal collection:
+
+### 1. Define Your Bottle Inventory
+
+Edit `scripts/data/bottles_seed.json` with your bottles:
+
+```json
+[
+  {
+    "brand": "Talisker",
+    "label": "10 Year Old",
+    "family": "Whiskey",
+    "flavor_profile": {
+      "sweet": 1,
+      "bitter": 3,
+      "sour": 0,
+      "citrusy": 1,
+      "fruity": 2,
+      "herbal": 1,
+      "floral": 0,
+      "spicy": 2,
+      "smoky": 4,
+      "vanilla": 1,
+      "woody": 2,
+      "minty": 1,
+      "earthy": 1,
+      "umami": 0,
+      "body": 4,
+      "intensity": 4
+    },
+    "on_hand": true
+  }
+]
+```
+
+Each `flavor_profile` value is 0–5 (0 = not present, 5 = dominant).
+
+### 2. Generate Database Seed
 
 ```bash
-cd backend  && pytest tests/ -v    # 104 tests (requires live DB)
-cd frontend && pytest tests/ -v    # 80 tests  (no live backend needed)
+cd scripts
+python generate_seed_sql.py data/bottles_seed.json data/iba_cocktails_normalized.json
 ```
 
-## Deployment & GitOps (detailed)
+This outputs `seed.sql` with both your bottles and the 102 IBA recipes.
 
-> **Quick version**: see [Option A](#option-a--openshift-gitops-official) above. This section covers the architecture and daily workflows in depth.
+### 3. Update the Database
 
-### Architecture
-
-The mix-ml deployment pipeline implements a complete GitOps workflow on OpenShift Local (CRC):
-
-```mermaid
-flowchart LR
-    Dev[Developer<br/>local laptop] -->|git push code| GH[GitHub repo]
-    Dev -->|tkn pipeline start| TK[Tekton Pipelines<br/>mix-ml-ci namespace]
-
-    TK -->|clone source| GH
-    TK -->|lint + test| TK
-    TK -->|build + push| GHCR[ghcr.io<br/>container registry]
-    TK -->|commit manifest update| GH
-
-    GH -->|polled every 3min| Argo[ArgoCD<br/>openshift-gitops namespace]
-    Argo -->|manual sync via UI| Workloads[Workloads<br/>mix-ml namespace]
-
-    GHCR -.->|pulled by pods| Workloads
-
-    Workloads --> Postgres[(Postgres)]
-    Workloads --> Backend[Backend FastAPI]
-    Workloads --> Frontend[Frontend HTMX/FastAPI]
-
-    Frontend -->|HTTP cluster-internal| Backend
-    Backend -->|SQL| Postgres
-
-    User[End user] -->|HTTPS via Route| Frontend
-
-    classDef external fill:#fef3c7,stroke:#92400e
-    classDef cluster fill:#dbeafe,stroke:#1e40af
-    classDef workload fill:#d1fae5,stroke:#065f46
-
-    class Dev,GH,GHCR,User external
-    class TK,Argo cluster
-    class Workloads,Postgres,Backend,Frontend workload
+For Docker:
+```bash
+cp scripts/seed.sql db/seed.sql
+docker compose down -v && docker compose up -d
 ```
 
-The architecture separates three concerns:
+For local dev:
+```bash
+psql -U cocktailuser -d cocktails -a -f scripts/seed.sql
+```
 
-- **External** (yellow): developer environment, source code repository, container registry, end users
-- **Cluster automation** (blue): Tekton pipelines build images; ArgoCD synchronizes desired state from Git to running cluster
-- **Workloads** (green): the actual application components (Postgres, backend, frontend)
+### 4. Calibrate the 2D Flavor Map Impressions (Optional)
 
-Key design decisions:
+When you change your bottle collection significantly, the UMAP clustering may shift. To keep cluster impressions accurate:
 
-- **Manifest-driven deployment**: the cluster state is fully determined by `manifests/` in the repo. No `oc apply` outside of bootstrap.
-- **Immutable image tags**: every build produces `git-<sha>` tag. Manifests reference SHA tags, never `latest`. Rollback is a tag change committed to Git.
-- **Manual sync gate**: ArgoCD does not auto-sync. A human reviews the diff in the ArgoCD UI before applying changes.
-- **Single-direction Git flow**: developers commit application code; Tekton commits manifest bumps; ArgoCD reads only. No circular updates.
+```bash
+# Regenerate cluster compositions with your live backend
+python scripts/calibrate_clusters.py --backend-url http://localhost:8080 --write
 
-The system runs on OpenShift Local (CRC), managed via ArgoCD (Red Hat OpenShift GitOps).
-ArgoCD watches `manifests/overlays/crc/` on `main` branch. All cluster changes go through Git.
+# Edit cluster_impressions.json to replace "TODO" placeholders with real descriptions
+# Then rebuild frontend
+docker compose up -d --build frontend
+```
 
-### Prerequisites & Bootstrap
+For details, see [2D Flavor Map Calibration](#2d-flavor-map-calibration-detailed).
 
-See [Option A — OpenShift GitOps](#option-a--openshift-gitops-official) in Quick Start.
+## Features in Detail
 
-### Daily Workflow
+### 2D Flavor Map
 
-#### Scenario: small backend change
-1. Edit code in `backend/`, commit and push
-2. `bash scripts/build-backend.sh`
-3. Wait for pipeline (~5-10 min)
-4. ArgoCD UI: Refresh → Sync
-5. Verify: `oc get pods -n mix-ml -l app.kubernetes.io/name=backend`
+The crown jewel: a zoomable, pannable scatter plot of your entire bottle collection in 2D flavor space.
 
-#### Scenario: small frontend change
-Same as above but `bash scripts/build-frontend.sh`.
+**What it does:**
+- **UMAP projection**: Reduces your 16-dimensional flavor profiles to 2D while preserving flavor neighborhoods
+- **DBSCAN clustering**: Automatically groups similar bottles
+- **Dual coloring**: Toggle between "Cluster" view (ML-discovered groups) and "Family" view (whiskey, gin, rum, etc.)
+- **Interactive detail**: Hover bottles to see names/brands, click to expand full flavor profile
+- **Impression summaries**: Each cluster has a human-written explanation of why those bottles cluster together
 
-#### Scenario: coordinated release (backend + frontend together)
-1. Make changes in both `backend/` and `frontend/`, commit and push
-2. `bash scripts/build-all.sh`
-3. Wait for both pipelines
-4. ArgoCD UI: Refresh → Sync (single sync applies both manifest updates)
-5. Verify both pods restarted
+**Technical details:**
+- UMAP parameters: `n_neighbors=10`, `min_dist=0.3`, `metric=euclidean`
+- DBSCAN parameters: `eps=0.6`, `min_samples=2` (tunable, see calibration)
+- Plotly.js for rendering (client-side pan/zoom/click)
+- Cluster impressions stored in `frontend/app/data/cluster_impressions.json`
 
-#### Scenario: manifest-only change (e.g. scale replicas, change env var)
-1. Edit `manifests/base/...yaml`, commit and push
-2. No pipeline trigger needed
-3. ArgoCD UI: Refresh → Sync
+### Heatmap
 
-#### Scenario: rollback
-1. Revert the kustomization.yaml change to a previous SHA tag:
+An N×N hierarchical-clustered flavor distance matrix. Fast pre-computed at startup, useful for finding flavor "bridges" between distant bottle families.
+
+### Inventory Management
+
+Organized bottle browser with:
+- Family-based grouping (Whiskey, Gin, Amaro, etc.)
+- Expandable flavor profiles (all 16 dimensions visible)
+- On-hand/out-of-stock toggle
+- Search by brand or label
+
+### Cocktail Feasibility
+
+Shows which of the 102 IBA cocktails you can make **right now** with your current inventory. Badges show recipe category (Unforgettable / Contemporary / New Era). Click to see ingredients and any missing items.
+
+### Substitutions
+
+For any cocktail you can't make, get alternative suggestions ranked by flavor distance. Choose between:
+- **Strict**: Same family, flavor distance ≤ 0.25
+- **Loose**: Cross-family, flavor distance ≤ 0.20
+- **Both**: See all options
+
+### Shopping Optimizer
+
+Given a budget (1–15 bottles), an integer linear programming solver finds the purchase set that maximizes the count of newly-feasible recipes. Solver respects recipe category weights (Unforgettables weighted higher).
+
+## API Endpoints (Overview)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/` | Home — cocktails you can make now |
+| GET | `/inventory` | Bottle inventory with optional flavor-map view |
+| GET | `/inventory/flavor-map` | Interactive 2D scatter plot + heatmap |
+| GET | `/cocktails/can-make-now` | Feasible recipe list |
+| GET | `/cocktails/{id}` | Recipe detail with profile radar |
+| GET | `/substitutions` | Per-recipe ingredient alternatives |
+| GET | `/shopping` | Multi-step purchase optimizer |
+| GET | `/iba` | Browse all 102 IBA recipes |
+
+For the full backend REST API:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/bottles` | Your bottle inventory (JSON) |
+| GET | `/api/recipes` | IBA recipes with `?category=` filter |
+| GET | `/api/cocktails/can-make-now` | Feasible recipe IDs + names |
+| GET | `/api/flavor/distance?bottle_a=X&bottle_b=Y` | Flavor distance breakdown |
+| GET | `/api/flavor/similar-bottles?bottle_id=X` | Ranked neighbors |
+| GET | `/api/cocktails/{id}/substitutions` | Per-recipe alternatives |
+| GET | `/api/bottles/optimize-shopping?budget=K` | ILP K-bottle purchase plan |
+
+Full interactive docs at http://localhost:8080/docs (running backend required).
+
+## Testing
+
+```bash
+# Backend (104 tests)
+cd backend && pytest tests/ -v
+
+# Frontend (80 tests, no backend required)
+cd frontend && pytest tests/ -v
+
+# CI/CD validation (OpenShift only, requires CRC)
+bash tests/test_full_gitops.sh
+```
+
+## Component Details
+
+### Backend (`backend/`)
+
+FastAPI REST API with SQLAlchemy ORM. Provides:
+- Bottle inventory CRUD
+- IBA recipe database
+- Flavor distance computation (weighted Euclidean, gustative + structural)
+- Feasibility checking (recursive ingredient satisfaction)
+- Substitution ranking
+- ILP-based shopping optimization (OR-Tools CP-SAT solver)
+
+Setup: `backend/README.md`
+
+### Frontend (`frontend/`)
+
+FastAPI + Jinja2 + HTMX web UI. No JavaScript bundler, no Node. 
+
+Stack:
+- **Templating**: Jinja2 server-side rendering
+- **Interactivity**: HTMX (CDN) for form submission without page reload
+- **Styling**: Tailwind CSS (CDN dev, precompiled CSS prod)
+- **2D Map**: Plotly.js (CDN) for interactive scatter plot
+- **Clustering**: SciPy (UMAP + DBSCAN server-side)
+
+Setup: `frontend/README.md`
+
+### Database (`db/`)
+
+PostgreSQL 16 schema with:
+- `recipes` — 102 IBA cocktails
+- `recipe_ingredients` — ingredients per recipe (with amounts/units)
+- `bottles` — your personal inventory
+- `bottle_flavors` — 16-dimensional flavor profiles
+- `ingredient_classes` — taxonomy (spirits, bitters, juices, etc.)
+- `is_commodity` flag for assumed-available ingredients
+
+Database schema is generated by `generate_seed_sql.py`.
+
+## Advanced
+
+### OpenShift GitOps Setup (Advanced)
+
+For production deployment on Red Hat OpenShift Local (CRC):
+
+**Prerequisites:**
+- OpenShift Local (CRC) running (~16 GB RAM)
+- `oc` CLI logged in as `kubeadmin`
+- GitHub PAT with `repo` + `write:packages` scope
+
+**Setup:**
+```bash
+export POSTGRES_PASSWORD=$(openssl rand -base64 24)
+export POSTGRES_ADMIN_PASSWORD=$(openssl rand -base64 24)
+export GITHUB_USERNAME=<your-github-username>
+export GITHUB_TOKEN=<your-ghp-token>
+
+bash scripts/setup-secrets.sh
+bash scripts/bootstrap-gitops.sh
+bash scripts/bootstrap-ci.sh          # optional: for automated image builds
+bash scripts/setup-ci-secrets.sh      # optional
+```
+
+The system will deploy:
+- ArgoCD watching `manifests/overlays/crc/`
+- Tekton pipelines for automated backend/frontend image builds
+- Postgres 16 with automatic seeding
+- Backend and frontend services behind OpenShift Routes
+
+Full details: [Deployment & GitOps](#openshift-gitops-detailed) below.
+
+### 2D Flavor Map Calibration (Detailed)
+
+When you add/remove many bottles, UMAP and DBSCAN may discover different clusters. Impressions are calibrated to a specific bottle set via a 75% overlap matching heuristic.
+
+**Workflow:**
+
+1. Update `scripts/data/bottles_seed.json` with new bottles
+2. Generate new seed:
    ```bash
-   git revert <bump-commit-sha>
-   git push
+   cd scripts && python generate_seed_sql.py data/bottles_seed.json
+   cp seed.sql ../db/seed.sql
    ```
-2. ArgoCD UI: Refresh → Sync
-3. Pods restart with previous image
+3. Reseed the database:
+   ```bash
+   docker compose down -v && docker compose up -d
+   ```
+4. Wait for backend to initialize (30s), then calibrate:
+   ```bash
+   python scripts/calibrate_clusters.py --backend-url http://localhost:8080 --write
+   ```
+5. Review `frontend/app/data/cluster_impressions.json` — edit TODO lines with real descriptions
+6. Rebuild frontend:
+   ```bash
+   docker compose up -d --build frontend
+   ```
 
-#### Updating Manifests
+**Tuning DBSCAN:**
 
-1. Edit files under `manifests/base/` or `manifests/overlays/crc/`.
-2. Commit and push to `main`.
-3. In ArgoCD UI, click "Refresh" then "Sync" on the `mix-ml` Application.
-4. Verify resources are healthy.
-
-#### Database Seeding
-
-Seeding is **automatic** — an ArgoCD PostSync hook runs `db/seed.sql` on every sync. The SQL is idempotent (drops and recreates all tables).
-
-**To update seed data** (e.g. add bottles, fix recipes):
-
+If clustering looks wrong, adjust `eps`:
 ```bash
-# 1. Edit scripts/data/bottles_seed.json or iba_cocktails_normalized.json
-# 2. Regenerate seed.sql
-cd scripts && python generate_seed_sql.py data/iba_cocktails_normalized.json
-
-# 3. Copy to all locations
-cp seed.sql ../manifests/base/seed.sql && cp seed.sql ../db/seed.sql
-
-# 4. Commit, push, sync in ArgoCD — PostSync hook re-seeds automatically
+python scripts/calibrate_clusters.py --eps 0.7 --backend-url http://localhost:8080 --write
 ```
 
-## CI/CD: Application Pipelines
+- Larger `eps` → fewer, larger clusters
+- Smaller `eps` → more, tighter clusters
+- Typical range for 30–80 bottles: 0.4–0.8
+- Typical UMAP coordinate range: x ≈ 5 units, y ≈ 6 units
 
-Both the backend and frontend are built by Tekton pipelines running in the `mix-ml-ci` namespace. The pipelines share a common set of reusable Tasks, parameterized by `app-path`.
+### Scraper & Analyzer (Advanced)
 
-### Pipeline flow
+Tools for building the IBA recipe database from scratch.
 
-Each pipeline (`backend-ci` and `frontend-ci`) follows the same DAG:
+**Scraper** (`scripts/scrape_iba.py`):
+```bash
+cd scripts && python scrape_iba.py
+```
 
+Downloads all 102 recipes from [iba-world.com](https://iba-world.com), parses ingredients and methods, outputs `data/iba_cocktails.json`.
+
+**Analyzer** (`scripts/analyze_iba.py`):
+```bash
+cd scripts && python analyze_iba.py data/iba_cocktails.json
+```
+
+Generates reports:
+- `report_ingredient_frequency.csv` — ingredient frequency + recipe lists
+- `report_unit_inventory.csv` — units of measure + examples
+- `report_ingredient_clusters.txt` — name-similarity groups (merge candidates)
+- `report_summary.md` — overview (categories, top-20 ingredients, techniques)
+
+### OpenShift GitOps Detailed
+
+The official deployment uses ArgoCD to watch this repository and manage cluster state.
+
+**Architecture:**
+```
+Developer
+  ↓ (git push)
+GitHub repo (main branch)
+  ↓ (polled by)
+ArgoCD (openshift-gitops)
+  ├→ Tekton Pipelines (mix-ml-ci namespace) — build/push images
+  ├→ Kustomize overlays (manifests/overlays/crc/)
+  ↓
+Kubernetes cluster (mix-ml namespace)
+  ├ Postgres 16 (persistent storage)
+  ├ Backend FastAPI
+  └ Frontend HTMX+Jinja2
+```
+
+**Key decisions:**
+- **Manifest-driven**: Cluster state fully defined in Git. No `oc apply` outside bootstrap.
+- **Immutable tags**: Every build gets `git-<short-sha>`. Rollback is a Git revert.
+- **Manual sync**: Human reviews diff in ArgoCD UI before deploying. (Can be auto-enabled in `Application` spec.)
+- **Seeding automation**: ArgoCD PostSync hook runs `db/seed.sql` on every sync — idempotent.
+
+**Daily workflows:**
+
+*Backend change:*
+```bash
+# 1. Edit code, commit, push
+# 2. Trigger build (CRC only)
+bash scripts/build-backend.sh
+
+# 3. ArgoCD UI → Refresh → Sync
+# 4. Verify
+oc get pods -n mix-ml -l app.kubernetes.io/name=backend
+```
+
+*Frontend change:* Same steps, use `bash scripts/build-frontend.sh`.
+
+*Manifest change (env var, replicas, etc.):*
+```bash
+# 1. Edit manifests/base/*.yaml
+# 2. Commit, push
+# 3. ArgoCD UI → Refresh → Sync
+```
+
+*Rollback:*
+```bash
+git revert <commit-sha>
+git push
+# ArgoCD UI → Refresh → Sync
+```
+
+*Update bottle seed data:*
+```bash
+# 1. Edit scripts/data/bottles_seed.json
+# 2. Regenerate seed
+cd scripts && python generate_seed_sql.py data/bottles_seed.json
+cp seed.sql ../db/seed.sql
+
+# 3. Commit, push
+# 4. ArgoCD UI → Refresh → Sync
+# (PostSync hook re-seeds automatically)
+```
+
+### CI/CD Pipelines (Advanced)
+
+Tekton pipelines in `mix-ml-ci` namespace build and push container images.
+
+**Pipeline DAG:**
 ```
 git-clone → compute-image-tag ─┐
          → lint-and-test ──────┼→ build-and-push → update-manifest
-                               │     (buildah)       (yq + git push)
+                               │     (buildah)
 ```
 
-1. Clones the repository at the specified branch/commit
-2. Lints (ruff) and tests (pytest) the Python code
-3. Builds the container image with Buildah
-4. Pushes to `ghcr.io` with two tags: `git-<short-sha>` (immutable) and `latest` (mobile)
-5. Updates `manifests/base/kustomization.yaml` with a Kustomize `images:` override referencing the new immutable tag
-6. Commits and pushes the manifest change to `main`
+1. Clones repo
+2. Lints (ruff) and tests (pytest)
+3. Builds image with Buildah, pushes to ghcr.io with tags: `git-<short-sha>` + `latest`
+4. Commits manifest update (Kustomize image override) to `main`
+5. ArgoCD detects and shows OutOfSync
 
-ArgoCD detects the manifest change at the next refresh and shows `OutOfSync`. Sync is manual.
-
-### Triggering builds
-
+**Trigger:**
 ```bash
-# Backend only
-bash scripts/build-backend.sh
-
-# Frontend only
-bash scripts/build-frontend.sh
-
-# Both in parallel
-bash scripts/build-all.sh
+bash scripts/build-backend.sh     # Backend only
+bash scripts/build-frontend.sh    # Frontend only
+bash scripts/build-all.sh         # Both in parallel
 ```
 
-Scripts read the current git branch via `git branch --show-current`. Commit and push any local changes before triggering. `--showlog` streams pipeline output live.
-
-### Watching the pipeline
-
-- OpenShift console → **Pipelines** → namespace `mix-ml-ci`
-- Or via CLI:
-  ```bash
-  tkn pipelinerun list -n mix-ml-ci
-  tkn pipelinerun logs <name> -f -n mix-ml-ci
-  ```
-
-### Validating the CI setup
-
+**Watch:**
 ```bash
-bash tests/test_backend_ci.sh      # backend pipeline checks
-bash tests/test_frontend_ci.sh     # frontend pipeline checks
-bash tests/test_full_gitops.sh     # full stack validation
+tkn pipelinerun list -n mix-ml-ci
+tkn pipelinerun logs <name> -f -n mix-ml-ci
 ```
 
-### Common failure modes
+**Troubleshoot:**
+| Issue | Fix |
+|-------|-----|
+| Auth error on push | Re-run `bash scripts/setup-ci-secrets.sh` |
+| Git push fails | GitHub PAT expired or missing `repo` scope |
+| Tests timeout | CRC needs more resources (~16GB RAM) |
 
-| Failure | Cause | Fix |
-|---------|-------|-----|
-| `lint-and-test` fails | Code has lint errors or test failures | Fix locally, commit, re-run |
-| `build-and-push` auth error | `ghcr-credentials` expired or missing | Re-run `setup-ci-secrets.sh` |
-| `update-manifest` git push error | `github-credentials` expired or PAT lacks `repo` scope | Re-run `setup-ci-secrets.sh` with new PAT |
-| ArgoCD doesn't show OutOfSync | Polling interval ~3 min | Click **Refresh** in UI |
-| Frontend lint-and-test numpy/scipy error | Heavy deps timeout in install step | Retry; CRC may need more resources |
+See `tests/test_backend_ci.sh` and `tests/test_frontend_ci.sh` for validation.
 
-### Troubleshooting
+### Manifests Structure
 
-**Pod CrashLoopBackOff with "POSTGRES_USER not set"**
-— Secret `postgres-credentials` missing. Re-run `bash scripts/setup-secrets.sh`.
-
-**ArgoCD shows "OutOfSync" but you didn't change anything**
-— Cluster drift from manual `oc apply`. Click "Sync" in ArgoCD to reconcile.
-
-**ImagePullBackOff for backend/frontend**
-— ghcr.io credentials missing. Re-run `setup-secrets.sh` with `GITHUB_USERNAME` and `GITHUB_TOKEN`.
-
-### Why manual sync and not auto-sync?
-
-This iteration uses manual ArgoCD sync deliberately: it keeps a human in the loop between "image built" and "image deployed", which is useful for portfolio-grade demos and for catching mistakes. Production setups often enable auto-sync with retries — straightforward change to `Application` spec, deferred to a future iteration.
-
-### Future enhancements (out of scope for this iteration)
-
-This iteration delivers a complete but minimal GitOps workflow. The following enhancements are deliberately not implemented, documented for transparency and as a roadmap:
-
-**Security & secrets**
-- Sealed Secrets or External Secrets Operator (current: placeholder + setup script)
-- Image scanning (Trivy, Sysdig, Red Hat ACS)
-- SBOM generation in pipeline
-- Pod Security Standards enforcement
-- NetworkPolicy isolation between namespaces
-
-**Deployment patterns**
-- Multi-environment (dev/staging/prod) via overlay promotion
-- Auto-sync with retry policies and self-heal
-- Blue-green or canary deployments via Argo Rollouts
-- Multi-cluster GitOps with ApplicationSet
-
-**CI/CD**
-- Webhook-triggered pipelines (requires cluster ingress, not available on CRC)
-- Multi-arch image builds (arm64 + amd64)
-- Pull-request-based workflow with required reviews
-- Slack/email notifications on pipeline status
-- Cached layer builds for faster iteration
-
-**Observability**
-- Prometheus + Grafana dashboards for application metrics
-- Loki for centralized logging
-- Distributed tracing (OpenTelemetry)
-- Alert routing (AlertManager → PagerDuty/Slack)
-
-**Governance**
-- Policy-as-code (Kyverno, OPA Gatekeeper)
-- Cost monitoring (Kubecost)
-- Compliance scanning (Red Hat ACM)
-
-These are intentionally deferred to keep the current iteration focused on the GitOps fundamentals demonstrable on a single CRC node.
-
-## Scraper
-
-```bash
-cd scripts
-python scrape_iba.py
+```
+manifests/
+├── operators/          # Red Hat GitOps + Pipelines subscriptions
+├── argocd/             # ArgoCD Application CR
+├── base/               # Base Kustomize components
+│   ├── namespace.yaml
+│   ├── postgres-*.yaml
+│   ├── backend-*.yaml
+│   ├── frontend-*.yaml
+│   └── seed.sql
+└── overlays/crc/       # CRC-specific resource limits + patches
 ```
 
-1. Downloads the IBA recipe index from [iba-world.com](https://iba-world.com)
-2. Visits each recipe page (2s delay between requests)
-3. Extracts name, category, ingredients, method, garnish
-4. Saves to `iba_cocktails.json` (alphabetically sorted)
+Kustomize paths:
+- Base: `manifests/base/kustomization.yaml`
+- CRC overlay: `manifests/overlays/crc/kustomization.yaml`
+- ArgoCD watches: `manifests/overlays/crc/` on `main` branch
 
-Idempotent — skips recipes already present if the output file exists.
+## Project Structure
 
-### IBA Categories
-
-| JSON key | Site name |
-|----------|-----------|
-| `unforgettable` | The Unforgettables |
-| `contemporary` | Contemporary Classics |
-| `new_era` | New Era |
-
-### Ingredient Parsing
-
-| Text pattern | `amount` | `unit` | `name` |
-|--------------|----------|--------|--------|
-| `30 ml Gin` | `30` | `"ml"` | `"Gin"` |
-| `2 dashes Angostura` | `2` | `"dash"` | `"Angostura"` |
-| `Few Dashes Bitters` | `null` | `"dash"` | `"Bitters"` |
-| `1 bar spoon Sugar` | `1` | `"bsp"` | `"Sugar"` |
-| `Champagne to top` | `null` | `"top"` | `"Champagne"` |
-| `Soda Water` (bare) | `null` | `null` | `"Soda Water"` |
-
-## Analyzer
-
-```bash
-cd scripts
-python analyze_iba.py data/iba_cocktails.json
+```
+mix-ml/
+├── README.md                          # This file
+├── backend/                           # FastAPI REST API
+│   ├── app/
+│   │   ├── models.py                  # SQLAlchemy ORM
+│   │   ├── queries.py                 # Database queries
+│   │   ├── services/                  # Business logic
+│   │   └── routers/                   # API endpoints
+│   ├── tests/                         # 104 unit/integration tests
+│   └── pyproject.toml
+├── frontend/                          # HTMX web UI
+│   ├── app/
+│   │   ├── routers/                   # Page routes
+│   │   ├── services/                  # UMAP, clustering, optimization
+│   │   ├── templates/                 # Jinja2 HTML
+│   │   ├── static/                    # CSS, favicon, images
+│   │   └── data/
+│   │       └── cluster_impressions.json # Human-written cluster descriptions
+│   ├── tests/                         # 80 unit/integration tests
+│   └── pyproject.toml
+├── db/                                # Database schema
+│   └── seed.sql                       # IBA recipes + default bottles
+├── scripts/                           # Offline tools
+│   ├── generate_seed_sql.py           # Build seed.sql from JSON
+│   ├── calibrate_clusters.py          # Tune DBSCAN, update impressions
+│   ├── scrape_iba.py                  # Download IBA recipes
+│   ├── analyze_iba.py                 # Generate reports
+│   ├── data/
+│   │   ├── bottles_seed.json          # Your bottle inventory
+│   │   └── iba_cocktails_normalized.json # Normalized recipe JSON
+│   └── requirements-scripts.txt       # scipy, numpy for UMAP
+├── manifests/                         # Kubernetes + ArgoCD
+│   ├── base/
+│   ├── overlays/crc/
+│   ├── argocd/
+│   └── operators/
+├── tests/                             # Integration test scripts
+│   ├── test_backend_ci.sh
+│   ├── test_frontend_ci.sh
+│   ├── test_gitops_setup.sh
+│   └── test_full_gitops.sh
+├── docker-compose.yaml                # Production image versions
+├── compose.build.yaml                 # Local dev overrides (exposes ports)
+└── .gitignore                         # Excludes .venv, .env, outputs
 ```
 
-No dependencies beyond the standard library.
+## Common Questions
 
-| Output file | Content |
-|-------------|---------|
-| `report_ingredient_frequency.csv` | Ingredient frequency with recipe lists |
-| `report_unit_inventory.csv` | Units of measure, frequency, examples |
-| `report_amount_anomalies.txt` | Null/zero/non-numeric amounts |
-| `report_ingredient_clusters.txt` | Similar-name clusters (merge candidates) |
-| `report_summary.md` | Overview: categories, top-20 ingredients, glassware, techniques |
+**Q: Can I use this with a different set of cocktails?**
+A: Yes. The scraper/analyzer pipeline works with any recipe collection. Update `scripts/data/iba_cocktails_normalized.json` and rebuild the seed.
+
+**Q: Do I need OpenShift?**
+A: No. Docker Compose is fully functional (simplest for most users). OpenShift is optional for production-grade GitOps workflows.
+
+**Q: Can I customize flavor dimensions?**
+A: The API currently hardcodes 16 dimensions (14 gustative + 2 structural). Adding/removing dimensions requires schema migration + frontend updates.
+
+**Q: How do I add new bottles?**
+A: Edit `scripts/data/bottles_seed.json`, regenerate seed.sql, reseed DB. No code changes needed.
+
+**Q: What if my cluster impressions are stale after adding bottles?**
+A: Run `calibrate_clusters.py --write` to auto-match with 75% overlap heuristic and flag new clusters with TODO.
+
+## License & Attribution
+
+IBA cocktail data sourced from [iba-world.com](https://iba-world.com).
+
+Flavor profiles, bottle additions, and optimizations are author's own.
+
+---
+
+**Last updated:** May 2026  
+**Latest version:** v1.3.9

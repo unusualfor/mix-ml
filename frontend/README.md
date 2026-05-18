@@ -1,204 +1,145 @@
-# Mix/ML Frontend
+# Frontend Web UI
 
-Web UI for the mix-ml cocktail intelligence platform.
-Separate HTTP service that calls the backend API and renders HTML via Jinja2 + HTMX.
+Jinja2 + HTMX + Plotly.js web interface for the mix-ml cocktail platform.
+
+**For overview, quick start, and getting your own bottles working, see the [root README](../README.md).**
 
 ## Stack
 
 - **Python 3.11+** / FastAPI / Jinja2
-- **HTMX 1.9** for client-side interactivity (CDN, no build step)
-- **Tailwind CSS** via CDN (dev); precompiled `static/css/app.css` in prod
-- **httpx** for backend HTTP calls
-- **scipy + numpy** for hierarchical clustering (flavor map)
-- **Plotly.js** for interactive 2D flavor map visualization (CDN) — *see note below*
-- No Node, no bundler, no npm
-
-### Plotly.js Exception
-
-The **2D flavor map** uses Plotly.js (via CDN) for interactive scatter plot visualization with zoom/pan/click and color-mode toggle. This is the only client-side JavaScript library in the project (beyond HTMX).
-
-**Why?** Plotting zoom/pan/click interactivity with dual-coloring modes requires event handling and dynamic recoloring that HTMX + pure SVG cannot support efficiently. Plotly.js solves this in ~15 lines of custom JS.
-
-All data is pre-computed server-side (UMAP dimensionality reduction, Plotly figure JSON). Plotly.js is loaded only on `/inventory/flavor-map` (not on other pages, to avoid bloat).
-
-## Features
-
-- **Home** — cocktail grid with feasibility badges, category filtering via HTMX
-- **Cocktail detail** — recipe breakdown with profile radar
-- **Inventory** — bottle cards with expandable flavor profiles, grouped by family
-- **Flavor map** — Two interactive views:
-  - **Heatmap** — SVG matrix of pairwise flavor distances (hierarchical clustering)
-  - **2D Map** — UMAP scatter plot with zoom/pan, color-toggle (cluster vs. family), click for bottle details
-- **Substitutions** — per-cocktail ingredient analysis with strict/loose alternatives, preview modal with status badges
-- **Shopping planner** — ILP-based multi-step purchase optimizer
+- **HTMX 1.9** (CDN) — interactive forms without page reload
+- **Tailwind CSS** (CDN dev, precompiled prod)
+- **Plotly.js** (CDN) — interactive 2D scatter plot on `/inventory/flavor-map`
+- **SciPy** — UMAP dimensionality reduction, hierarchical clustering
+- No build step, no JavaScript bundler, no npm
 
 ## Local Development
-
-Prerequisites: backend running on `localhost:8080` (via port-forward or direct).
 
 ```bash
 cd frontend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Default BACKEND_URL is http://localhost:8080
-uvicorn app.main:app --host 0.0.0.0 --port 3000 --reload
+# Backend must be running (see backend/README.md)
+BACKEND_URL="http://localhost:8080" uvicorn app.main:app --port 3000 --reload
 ```
 
-Open http://localhost:3000.
+Open **http://localhost:3000**.
 
-Override backend URL:
+To override backend:
 ```bash
-BACKEND_URL=http://172.25.144.1:8080 uvicorn app.main:app --port 3000 --reload
+BACKEND_URL="http://192.168.x.x:8080" uvicorn app.main:app --port 3000 --reload
 ```
+
+## Routes
+
+| Path | Purpose |
+|------|---------|
+| `/` | Home — cocktails you can make now |
+| `/iba` | Browse all 102 IBA recipes with detail view |
+| `/cocktails/can-make-now` | Feasible recipes (same as home, HTMX-navigable) |
+| `/cocktails/{id}` | Recipe detail with profile radar chart |
+| `/inventory` | Bottle collection organized by family |
+| `/inventory/flavor-map` | Interactive 2D scatter plot + heatmap of bottles |
+| `/inventory/flavor-map?view=2d` | Force 2D Map tab |
+| `/inventory/flavor-map?view=heatmap` | Force Heatmap tab |
+| `/substitutions` | Per-recipe ingredient alternatives |
+| `/shopping` | Multi-step ILP purchase optimizer |
+| `/healthz` | Liveness probe (always 200) |
+| `/readyz` | Readiness probe (pings backend `/healthz`) |
 
 ## Tests
 
 ```bash
-cd frontend && source .venv/bin/activate
-python -m pytest tests/ -v   # 80 tests
+pytest tests/ -v   # 80 tests, no backend required (mocked)
 ```
 
-Tests mock the backend client — no live backend needed.
+Tests mock the backend client, so a live API is not needed.
 
-## Container Build
+## Startup: What Happens
 
-```bash
-podman build -t mix-ml-frontend:latest frontend/
-```
+On server startup, the frontend:
 
-## Kubernetes Deployment
+1. Waits up to 30s for backend health check
+2. Fetches all bottles with 16D flavor profiles
+3. Computes N×N flavor distance matrix
+4. Runs hierarchical clustering (SciPy average linkage) → renders SVG heatmap
+5. Fits UMAP projection (16D → 2D)
+6. Runs DBSCAN on 2D embedding to find clusters
+7. Matches clusters with human impressions from `cluster_impressions.json`
+8. Builds Plotly scatter figure JSON and caches it
 
-Manifests in `manifests/base/`:
-- `frontend-deployment.yaml` — 2 replicas, probes on `/healthz` and `/readyz`
-- `frontend-service.yaml` — ClusterIP port 8080
-- `frontend-route.yaml` — OpenShift Route with TLS edge termination
+Both precomputations run once at startup and are served instantly on subsequent requests.
 
-CRC overlay (`manifests/overlays/crc/`) scales to 1 replica with reduced resources.
+If a computation fails (e.g., UMAP convergence, numba timeout), the affected feature shows a graceful error; other features work normally.
 
-```bash
-oc apply -k manifests/overlays/crc/
-```
+## 2D Flavor Map in Detail
+
+The interactive scatter plot uses:
+
+**UMAP parameters:**
+- `n_neighbors=10` (auto-capped to dataset size - 1)
+- `min_dist=0.3`
+- `metric=euclidean`
+- `random_state=42` (deterministic)
+
+**DBSCAN parameters:**
+- `eps=0.6` (tunable via `calibrate_clusters.py`)
+- `min_samples=2`
+- Outliers get individual cluster IDs (-1, -2, -3, ... -8 for 8 outliers)
+
+**Cluster impressions** (`frontend/app/data/cluster_impressions.json`):
+- Stored as JSON with bottle set compositions + human-written descriptions
+- Matched to live clusters via 75% overlap heuristic
+- Auto-generated fallback for new/shifted clusters (bland "Top notes" text)
+
+**Coloring modes:**
+- **Cluster**: ML-discovered DBSCAN groups (colorful palette)
+- **Family**: Whiskey, Gin, Rum, etc. (14 distinct colors)
+
+**Interactivity:**
+- Hover to highlight cluster + show bottle name/brand
+- Click to expand full flavor profile panel
+- Zoom/pan with mouse wheel/drag (Plotly default)
+- Toggle coloring mode with buttons
+
+See root README [2D Flavor Map Calibration](#2d-flavor-map-calibration-detailed) for tuning after changing bottles.
+
+## Heatmap
+
+N×N hierarchical-clustered SVG matrix of pairwise flavor distances. Computed at startup, pre-rendered, instantly served.
+
+Shows flavor "bridges" — bottles that link otherwise-distant families.
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BACKEND_URL` | `http://localhost:8080` | Base URL of the backend API |
+| `BACKEND_URL` | `http://localhost:8080` | Backend API base URL |
 
-## Startup Behavior
-
-On startup, the frontend waits up to 30s for the backend health check,
-then fetches all bottles with flavor profiles, computes the N×N flavor
-distance matrix, runs hierarchical clustering (scipy average linkage),
-renders the SVG heatmap, and caches it on `app.state`. 
-
-Additionally, it builds a 2D UMAP projection of the flavor space and
-prepares a Plotly scatter figure (JSON), cached on `app.state.flavor_map_2d`.
-Both precomputations run once and are served instantly on subsequent requests.
-
-If either precomputation fails (e.g., UMAP convergence, numba issue), the
-affected feature shows a graceful error message; other features continue.
-
-## Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Home — cocktails you can make now |
-| GET | `/cocktails/can-make-now` | Cocktail list (HTMX partial or full page) |
-| GET | `/cocktails/{id}` | Cocktail detail page |
-| GET | `/inventory` | Bottle inventory (Collection tab) |
-| GET | `/inventory/{id}/profile` | Expanded bottle card (HTMX partial) |
-| GET | `/inventory/{id}/collapse` | Collapsed bottle card (HTMX partial) |
-| GET | `/inventory/flavor-map` | Flavor map (Heatmap & 2D Map tabs) |
-| GET | `/inventory/flavor-map/regenerate` | Dev-only: recompute matrix & 2D map |
-| GET | `/substitutions` | Substitution explorer |
-| GET | `/substitutions/preview` | Recipe preview modal (HTMX partial) |
-| GET | `/shopping` | Shopping planner |
-| GET | `/shopping/optimize` | Run shopping optimization (HTMX partial) |
-| GET | `/healthz` | Liveness probe (always 200) |
-| GET | `/readyz` | Readiness probe (pings backend `/healthz`) |
-
-## 2D Flavor Map: Cluster Impressions
-
-The 2D flavor map uses UMAP for dimensionality reduction and **DBSCAN** for
-visual clustering on the 2D embedding. Each cluster and outlier gets a
-hand-written "impression" — a short paragraph explaining *why* those bottles
-group together (or don't).
-
-### The Problem
-
-Impressions are **static text tied to a specific bottle collection**. When you
-add/remove bottles, UMAP coordinates shift and DBSCAN may produce different
-clusters. The 75% overlap matching provides resilience against minor changes
-(1-2 bottles added to a cluster), but large inventory changes will trigger
-fallback to auto-generated impressions (bland "Top notes: X, Y, Z" text).
-
-### How It Works
-
-1. **Data file**: `frontend/app/data/cluster_impressions.json`
-   - Contains cluster compositions (bottle lists) and their impressions
-   - Contains per-bottle outlier explanations
-   - Loaded at module import time
-
-2. **Matching logic** (`flavor_map_2d_builder.py`):
-   - For each DBSCAN cluster: find the entry in `cluster_impressions.json`
-     whose bottle set has ≥75% overlap with the actual cluster
-   - For outliers: exact match on `(brand, label)` key
-   - Fallback: auto-generate from mean flavor profile
-
-3. **Calibration script**: `scripts/calibrate_clusters.py`
-   - Runs UMAP + DBSCAN against the live backend API
-   - Outputs cluster compositions as JSON
-   - Preserves existing impressions where overlap ≥75%
-   - Marks new/changed clusters with `TODO` placeholders
-
-### Workflow After Changing Your Inventory
+## Container Build
 
 ```bash
-# 1. Make sure backend is running with updated bottles
-docker compose up -d backend
-
-# 2. Run calibration to see new clusters
-python scripts/calibrate_clusters.py --backend-url http://localhost:8080
-
-# 3. Review output — check for TODO placeholders and shifted clusters.
-#    Adjust eps if clusters look wrong:
-python scripts/calibrate_clusters.py --eps 0.7
-
-# 4. Once satisfied, write the file (preserves existing impressions):
-python scripts/calibrate_clusters.py --write
-
-# 5. Edit frontend/app/data/cluster_impressions.json
-#    Replace any TODO lines with real impressions.
-
-# 6. Rebuild frontend
-docker compose up -d --build frontend
+docker build -f frontend/Dockerfile -t mix-ml-frontend:latest frontend/
 ```
 
-### For New Users Cloning This Repo
+Image includes precompiled Tailwind CSS, reduced dependencies, and production-grade FastAPI settings.
 
-If you import a completely different bottle collection:
+## Kubernetes Deployment
 
-1. The 2D map will still render correctly (UMAP + DBSCAN work on any data)
-2. All impressions will be auto-generated (functional but generic)
-3. Run `scripts/calibrate_clusters.py --write` to generate a template
-4. Write your own impressions in `cluster_impressions.json`
+Manifests in `manifests/base/`:
+- `frontend-deployment.yaml` — 2 replicas, health probes on `/healthz` + `/readyz`
+- `frontend-service.yaml` — ClusterIP port 8080
+- `frontend-route.yaml` — OpenShift Route with TLS edge termination
 
-### DBSCAN Parameters
+CRC overlay scales to 1 replica with reduced memory limits.
 
-| Parameter | Default | Effect |
-|-----------|---------|--------|
-| `eps` | 0.6 | Neighborhood radius in UMAP 2D space. Larger = fewer clusters. Range [0.4–0.8] for typical collections of 30–80 bottles. |
-| `min_samples` | 2 | Minimum points to form a cluster. 2 means any pair of close bottles forms a cluster. |
+## Architecture
 
-Typical UMAP coordinate range for ~40 bottles: x≈5, y≈6 units.
+Frontend talks to backend API via httpx (async HTTP client). All heavy computation (UMAP, clustering) happens server-side. Client-side JavaScript (Plotly.js) is minimal and used only for pan/zoom/click interactivity that HTML can't provide.
 
-### Alternatives Considered
+No server-side WebSocket, no polling. Each page load fetches fresh data from backend (cached by nginx in production).
 
-- **LLM-generated impressions at startup**: Would require an API key, adds
-  latency, and produces inconsistent prose across restarts. Ruled out.
-- **Pure auto-generation**: The fallback already does this. Works for
-  structure but lacks the editorial voice that makes impressions interesting.
-- **User-editable via UI**: Would need auth + persistence layer. Out of scope
-  for this project's philosophy (data lives in files, not databases).
+---
+
+See [root README](../README.md) for full project overview, quick start, 2D Map calibration, and how to add your own bottles.
