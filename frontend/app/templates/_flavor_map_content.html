@@ -1,3 +1,8 @@
+<!-- Out-of-band swap for tabs -->
+<div hx-swap-oob="innerHTML:#tabs-container">
+  {% include "_inventory_tabs.html" %}
+</div>
+
 {% if not matrix_available %}
 <!-- Unavailable state -->
 <div class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center">

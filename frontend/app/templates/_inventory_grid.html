@@ -1,3 +1,8 @@
+<!-- Out-of-band swap for tabs -->
+<div hx-swap-oob="innerHTML:#tabs-container">
+  {% include "_inventory_tabs.html" %}
+</div>
+
 <div class="mb-6 flex flex-wrap gap-2">
   {% set filters = [("all", "All"), ("on_hand", "Available"), ("not_on_hand", "Out of stock")] %}
   {% for value, label in filters %}
