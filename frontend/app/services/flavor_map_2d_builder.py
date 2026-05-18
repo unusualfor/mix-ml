@@ -46,20 +46,20 @@ _UMAP_PARAMS = {
 
 # Family colors (14 families in current collection)
 _FAMILY_COLOR_MAP = {
-    "Whiskey": "#92400e",
-    "Gin": "#065f46",
-    "Rum": "#7c2d12",
-    "Vodka": "#e5e7eb",
-    "Agave Spirit": "#713f12",
-    "Brandy": "#78350f",
-    "Wine-Based Aperitif": "#4c1d95",
-    "Wine": "#831843",
-    "Bitter Italiano": "#7f1d1d",
-    "Aromatic Bitters": "#422006",
-    "Amaro": "#1e3a5f",
-    "Liqueur": "#134e4a",
-    "Sake & Umeshu": "#f0fdf4",
-    "Misc": "#6b7280",
+    "Whiskey":             "#b45309",  # amber-600 — warm brown, readable
+    "Gin":                 "#059669",  # emerald-600 — clear green
+    "Rum":                 "#dc2626",  # red-600
+    "Vodka":               "#94a3b8",  # slate-400 — neutral grey
+    "Agave Spirit":        "#ca8a04",  # yellow-600
+    "Brandy":              "#d97706",  # amber-500 — visible orange-brown
+    "Wine-Based Aperitif": "#7c3aed",  # violet-600
+    "Wine":                "#db2777",  # pink-600
+    "Bitter Italiano":     "#ef4444",  # red-500
+    "Aromatic Bitters":    "#78350f",  # amber-900 — distinct from Whiskey
+    "Amaro":               "#1d4ed8",  # blue-700
+    "Liqueur":             "#0891b2",  # cyan-600
+    "Sake & Umeshu":       "#84cc16",  # lime-500 — visible on light bg
+    "Misc":                "#6b7280",  # slate-500
 }
 
 # Cluster colors (Plotly qualitative palette, 10 colors)
