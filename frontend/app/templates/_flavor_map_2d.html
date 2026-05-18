@@ -248,8 +248,16 @@ function highlightCluster(clusterId) {
   var el = document.getElementById('flavor-map-2d');
   if (!el || !el.data || !el.data[0]) return;
   var cd = el.data[0].customdata;
-  var sizes = cd.map(function(d) { return d[6] === clusterId ? 18 : 6; });
-  var opacities = cd.map(function(d) { return d[6] === clusterId ? 1 : 0.2; });
+  // Ensure clusterId is a number (in case it was stringified)
+  var cid = parseInt(clusterId);
+  
+  var sizes = cd.map(function(d) { 
+    // Compare as numbers (convert d[6] to int to handle string/number mismatch)
+    return parseInt(d[6]) === cid ? 18 : 6; 
+  });
+  var opacities = cd.map(function(d) { 
+    return parseInt(d[6]) === cid ? 1 : 0.2; 
+  });
   Plotly.restyle('flavor-map-2d', {'marker.size': [sizes], 'marker.opacity': [opacities]});
 }
 
@@ -264,8 +272,11 @@ function unhighlightCluster() {
 }
 
 function toggleLockCluster(clusterId, cardEl) {
+  // Convert to number in case it came as string
+  var cid = parseInt(clusterId);
+  
   // If already locked on this cluster, unlock
-  if (window._clusterLocked && window._lockedClusterId === clusterId) {
+  if (window._clusterLocked && window._lockedClusterId === cid) {
     window._clusterLocked = false;
     window._lockedClusterId = null;
     unhighlightCluster();
@@ -278,8 +289,8 @@ function toggleLockCluster(clusterId, cardEl) {
   }
   // Lock on new cluster
   window._clusterLocked = true;
-  window._lockedClusterId = clusterId;
-  highlightCluster(clusterId);
+  window._lockedClusterId = cid;
+  highlightCluster(cid);
   // Style: highlight active card, reset others
   document.querySelectorAll('[data-cluster-id]').forEach(function(c) {
     c.classList.remove('border-amber-400', 'shadow-md');
