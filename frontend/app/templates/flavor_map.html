@@ -17,12 +17,63 @@
   </div>
 
   <!-- Tab navigation -->
-  {% include "_inventory_tabs.html" %}
+  <div id="tabs-container">
+    {% include "_inventory_tabs.html" %}
+  </div>
+
+  <!-- Sub-navigation: Heatmap vs 2D Map -->
+  <div id="flavor-map-subnav" class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
+    <button id="btn-heatmap"
+            onclick="showView('heatmap')"
+            class="px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors">
+      Heatmap
+    </button>
+    <button id="btn-2dmap"
+            onclick="showView('2dmap')"
+            class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors">
+      2D Map
+    </button>
+  </div>
 
   <!-- Tab content -->
   <div id="tab-content">
-    {% include "_flavor_map_content.html" %}
+    <div id="view-heatmap">
+      {% include "_flavor_map_heatmap.html" %}
+    </div>
+    <div id="view-2dmap" style="display:none;">
+      {% include "_flavor_map_2d.html" %}
+    </div>
   </div>
 
 </div>
+
+<script>
+// View toggle: Heatmap ↔ 2D Map
+function showView(view) {
+  document.getElementById('view-heatmap').style.display = view === 'heatmap' ? 'block' : 'none';
+  document.getElementById('view-2dmap').style.display = view === '2dmap' ? 'block' : 'none';
+  
+  if (view === '2dmap' && typeof initFlavorMap2D === 'function') {
+    // Wait for Plotly to load (deferred script) then init
+    if (typeof Plotly !== 'undefined') {
+      initFlavorMap2D();
+    } else {
+      var check = setInterval(function() {
+        if (typeof Plotly !== 'undefined') { clearInterval(check); initFlavorMap2D(); }
+      }, 100);
+    }
+  }
+
+  const btnHeatmap = document.getElementById('btn-heatmap');
+  const btn2dmap = document.getElementById('btn-2dmap');
+  
+  if (view === 'heatmap') {
+    btnHeatmap.className = 'px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors';
+    btn2dmap.className = 'px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors';
+  } else {
+    btnHeatmap.className = 'px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors';
+    btn2dmap.className = 'px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors';
+  }
+}
+</script>
 {% endblock %}

@@ -1,0 +1,33 @@
+{
+  "_description": "Cluster impressions keyed by sorted family names (frozenset signature). If a cluster's parent_family set matches a key here, use the pre-written impression. Otherwise, auto-generate from top-3 flavor dimensions.",
+  
+  "rich_complex": {
+    "families": ["Whiskey", "Wine-Based Aperitif", "Brandy", "Amaro"],
+    "impression": "Rich & complex spirits · Shared notes of vanilla, wood and body. These spirits bridge aged whiskey and fortified wines — all shine in stirred cocktails where depth is the point."
+  },
+  
+  "bitter_italians": {
+    "families": ["Bitter Italiano", "Aromatic Bitters", "Wine-Based Aperitif"],
+    "impression": "Bitter italians · Dominant amaro and spice, anchored by citrus. The backbone of aperitivo culture — from Campari to Angostura, these define the Italian aperitivo hour."
+  },
+  
+  "aromatic_floral": {
+    "families": ["Gin", "Wine-Based Aperitif", "Select"],
+    "impression": "Aromatic & floral spirits · Light-bodied, citrus-forward, herbal. Gin is the core, but Select and Martini Ambrato share enough botanical character to cluster alongside."
+  },
+  
+  "alpine_amaro": {
+    "families": ["Amaro"],
+    "impression": "Alpine & artichoke bitterness · Both reach deep into bitter-herbal territory — Braulio via mountain herbs, Cynar via artichoke. Interchangeable in some cocktail contexts."
+  },
+  
+  "resinous_botanicals": {
+    "families": ["Chandolia Mastiha", "Gin"],
+    "impression": "Resinous botanicals · Koval's forest gin and Chandolia's Chios mastic share a rare quality: they taste like somewhere specific. Both are resinous, herb-heavy, with a mentholated edge."
+  },
+  
+  "delicate_umami": {
+    "families": ["Sake & Umeshu"],
+    "impression": "Delicate umami · Low intensity, subtle fruit, distinctive umami. Japanese sake occupies its own quiet corner — nothing else in the collection competes for this space."
+  }
+}

@@ -62,6 +62,32 @@ def _generate_flavor_matrix(app: FastAPI) -> None:
         logger.exception("Flavor matrix generation failed")
         app.state.flavor_matrix_svg = None
         app.state.flavor_matrix_data = None
+    
+    # Build 2D flavor map (UMAP + Plotly)
+    try:
+        from app.services.flavor_map_2d_builder import build_flavor_map_2d
+        
+        # Extract cluster assignments from FlavorMatrixData
+        cluster_assignments = {}
+        if hasattr(app.state, "flavor_matrix_data") and app.state.flavor_matrix_data:
+            for cluster_idx, cluster in enumerate(app.state.flavor_matrix_data.clusters):
+                for bottle_id in cluster["bottle_ids"]:
+                    cluster_assignments[bottle_id] = cluster_idx
+        
+        if cluster_assignments:
+            map_2d_data = build_flavor_map_2d(items, cluster_assignments)
+            app.state.flavor_map_2d = map_2d_data
+            logger.info(
+                "2D flavor map generated: %d clusters, %s",
+                map_2d_data.n_clusters,
+                map_2d_data.generation_time,
+            )
+        else:
+            app.state.flavor_map_2d = None
+            logger.warning("No cluster assignments available for 2D map")
+    except Exception:
+        logger.exception("2D flavor map generation failed")
+        app.state.flavor_map_2d = None
 
 
 def create_app() -> FastAPI:

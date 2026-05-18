@@ -20,6 +20,10 @@
     }
   </script>
   <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+  {% if include_plotly %}
+  <!-- Plotly.js: Used only for interactive 2D flavor map visualization -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" crossorigin="anonymous" defer></script>
+  {% endif %}
   <style>
     [htmx-indicator] { opacity: 0; transition: opacity 200ms ease-in; }
     .htmx-request [htmx-indicator] { opacity: 1; }

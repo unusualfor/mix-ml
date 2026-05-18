@@ -10,14 +10,25 @@ Separate HTTP service that calls the backend API and renders HTML via Jinja2 + H
 - **Tailwind CSS** via CDN (dev); precompiled `static/css/app.css` in prod
 - **httpx** for backend HTTP calls
 - **scipy + numpy** for hierarchical clustering (flavor map)
+- **Plotly.js** for interactive 2D flavor map visualization (CDN) — *see note below*
 - No Node, no bundler, no npm
+
+### Plotly.js Exception
+
+The **2D flavor map** uses Plotly.js (via CDN) for interactive scatter plot visualization with zoom/pan/click and color-mode toggle. This is the only client-side JavaScript library in the project (beyond HTMX).
+
+**Why?** Plotting zoom/pan/click interactivity with dual-coloring modes requires event handling and dynamic recoloring that HTMX + pure SVG cannot support efficiently. Plotly.js solves this in ~15 lines of custom JS.
+
+All data is pre-computed server-side (UMAP dimensionality reduction, Plotly figure JSON). Plotly.js is loaded only on `/inventory/flavor-map` (not on other pages, to avoid bloat).
 
 ## Features
 
 - **Home** — cocktail grid with feasibility badges, category filtering via HTMX
 - **Cocktail detail** — recipe breakdown with profile radar
 - **Inventory** — bottle cards with expandable flavor profiles, grouped by family
-- **Flavor map** — SVG heatmap of pairwise flavor distances, hierarchical clustering, natural clusters, outliers, inter-cluster pairs
+- **Flavor map** — Two interactive views:
+  - **Heatmap** — SVG matrix of pairwise flavor distances (hierarchical clustering)
+  - **2D Map** — UMAP scatter plot with zoom/pan, color-toggle (cluster vs. family), click for bottle details
 - **Substitutions** — per-cocktail ingredient analysis with strict/loose alternatives, preview modal with status badges
 - **Shopping planner** — ILP-based multi-step purchase optimizer
 
@@ -80,8 +91,14 @@ oc apply -k manifests/overlays/crc/
 On startup, the frontend waits up to 30s for the backend health check,
 then fetches all bottles with flavor profiles, computes the N×N flavor
 distance matrix, runs hierarchical clustering (scipy average linkage),
-renders the SVG heatmap, and caches it on `app.state`. This runs once
-and is served instantly on subsequent requests.
+renders the SVG heatmap, and caches it on `app.state`. 
+
+Additionally, it builds a 2D UMAP projection of the flavor space and
+prepares a Plotly scatter figure (JSON), cached on `app.state.flavor_map_2d`.
+Both precomputations run once and are served instantly on subsequent requests.
+
+If either precomputation fails (e.g., UMAP convergence, numba issue), the
+affected feature shows a graceful error message; other features continue.
 
 ## Endpoints
 
@@ -93,8 +110,8 @@ and is served instantly on subsequent requests.
 | GET | `/inventory` | Bottle inventory (Collection tab) |
 | GET | `/inventory/{id}/profile` | Expanded bottle card (HTMX partial) |
 | GET | `/inventory/{id}/collapse` | Collapsed bottle card (HTMX partial) |
-| GET | `/inventory/flavor-map` | Flavor distance matrix (Flavor map tab) |
-| GET | `/inventory/flavor-map/regenerate` | Dev-only: recompute matrix |
+| GET | `/inventory/flavor-map` | Flavor map (Heatmap & 2D Map tabs) |
+| GET | `/inventory/flavor-map/regenerate` | Dev-only: recompute matrix & 2D map |
 | GET | `/substitutions` | Substitution explorer |
 | GET | `/substitutions/preview` | Recipe preview modal (HTMX partial) |
 | GET | `/shopping` | Shopping planner |

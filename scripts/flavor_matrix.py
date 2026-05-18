@@ -164,7 +164,8 @@ def write_cluster_report(
     n = len(bottles)
     condensed = squareform(mat, checks=False)
     Z = linkage(condensed, method="average")
-    labels = fcluster(Z, t=threshold, criterion="distance")
+    #labels = fcluster(Z, t=threshold, criterion="distance")
+    labels = fcluster(Z, t=0.2, criterion="distance")
 
     # group bottles by cluster
     clusters: dict[int, list[int]] = {}

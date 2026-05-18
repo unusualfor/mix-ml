@@ -1,7 +1,9 @@
+{% if is_partial %}
 <!-- Out-of-band swap for tabs -->
 <div hx-swap-oob="innerHTML:#tabs-container">
   {% include "_inventory_tabs.html" %}
 </div>
+{% endif %}
 
 <div class="mb-6 flex flex-wrap gap-2">
   {% set filters = [("all", "All"), ("on_hand", "Available"), ("not_on_hand", "Out of stock")] %}

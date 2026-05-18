@@ -108,7 +108,9 @@ def inventory_page(request: Request, filter: str = "all"):
     is_htmx = request.headers.get("HX-Request") == "true"
     hx_target = request.headers.get("HX-Target", "")
     if is_htmx and hx_target in ("bottles-grid", "tab-content", ""):
+        ctx["is_partial"] = True
         return templates.TemplateResponse(request, "_inventory_grid.html", ctx)
+    ctx["is_partial"] = False
     return templates.TemplateResponse(request, "inventory.html", ctx)
 
 
@@ -116,22 +118,36 @@ def _flavor_map_ctx(request: Request) -> dict:
     """Build context dict for the flavor-map tab."""
     svg = getattr(request.app.state, "flavor_matrix_svg", None)
     matrix_data = getattr(request.app.state, "flavor_matrix_data", None)
+    map_2d = getattr(request.app.state, "flavor_map_2d", None)
 
     if svg is None or matrix_data is None:
         return {
             "active_tab": "flavor_map",
             "matrix_available": False,
+            "map_2d_available": False,
             "bottle_count": 0,
             "family_count": 0,
+            "include_plotly": False,
         }
 
     # Derive bottle/family counts from cached data
     bottles = matrix_data.ordered_bottles
     families = {b.get("family_name", "Other") for b in bottles}
+    
+    # Build clusters list for side panel (if 2D map is available)
+    clusters_for_panel = []
+    if map_2d:
+        for cluster_id in sorted(map_2d.cluster_impressions.keys()):
+            clusters_for_panel.append({
+                "id": cluster_id,
+                "size": map_2d.cluster_sizes.get(cluster_id, 0),
+                "impression": map_2d.cluster_impressions.get(cluster_id, ""),
+            })
 
     return {
         "active_tab": "flavor_map",
         "matrix_available": True,
+        "map_2d_available": map_2d is not None,
         "svg": svg,
         "clusters": matrix_data.clusters,
         "singleton_bottle_ids": matrix_data.singleton_bottle_ids,
@@ -142,6 +158,10 @@ def _flavor_map_ctx(request: Request) -> dict:
         "generation_time": matrix_data.generation_time,
         "bottle_count": len(bottles),
         "family_count": len(families),
+        "plotly_json": map_2d.plotly_json if map_2d else None,
+        "clusters_2d": clusters_for_panel,
+        "n_clusters_2d": map_2d.n_clusters if map_2d else 0,
+        "include_plotly": map_2d is not None,
     }
 
 
