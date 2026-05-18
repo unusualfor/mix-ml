@@ -1,11 +1,15 @@
 # Override for local builds (instead of pulling from ghcr.io)
-# Usage: podman compose -f compose.yaml -f compose.build.yaml build
+# Usage: docker compose -f compose.yaml -f compose.build.yaml up -d --build
 
 services:
   backend:
     build:
       context: ./backend
+    ports:
+      - "8080:8080"
 
   frontend:
     build:
       context: ./frontend
+    ports:
+      - "3000:8080"
