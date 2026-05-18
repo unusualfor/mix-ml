@@ -3,18 +3,21 @@
   {% include "_inventory_tabs.html" %}
 </div>
 
-<!-- Sub-navigation: Heatmap vs 2D Map -->
-<div class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
-  <button id="btn-2dmap"
-          onclick="showView('2dmap')"
-          class="px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors">
-    2D Map
-  </button>
-  <button id="btn-heatmap"
-          onclick="showView('heatmap')"
-          class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors">
-    Heatmap
-  </button>
+<!-- Out-of-band swap for subnav -->
+<div hx-swap-oob="innerHTML:#flavor-map-subnav">
+  <!-- Sub-navigation: Heatmap vs 2D Map -->
+  <div class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
+    <button id="btn-2dmap"
+            onclick="showView('2dmap')"
+            class="px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors">
+      2D Map
+    </button>
+    <button id="btn-heatmap"
+            onclick="showView('heatmap')"
+            class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors">
+      Heatmap
+    </button>
+  </div>
 </div>
 
 <!-- 2D Map view (default) -->
