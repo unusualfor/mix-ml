@@ -17,7 +17,7 @@ services:
       - mix-internal
 
   backend:
-    image: ghcr.io/unusualfor/mix-ml-backend:v1.0.0
+    image: ghcr.io/unusualfor/mix-ml-backend:v1.3.1
     container_name: mix-ml-backend
     ports:
       - "8080:8080"
@@ -31,7 +31,7 @@ services:
       - caddy
 
   frontend:
-    image: ghcr.io/unusualfor/mix-ml-frontend:v1.0.0
+    image: ghcr.io/unusualfor/mix-ml-frontend:v1.3.1
     container_name: mix-ml-frontend
     ports:
       - "3000:8080"
