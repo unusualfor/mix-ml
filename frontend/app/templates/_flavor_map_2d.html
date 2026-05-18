@@ -70,8 +70,8 @@
       {% for cluster in clusters_2d %}
       <div class="bg-white border border-slate-200 rounded-lg transition-all duration-200 cursor-pointer hover:border-amber-300 hover:shadow-sm{% if cluster.id < 0 %} border-l-4 border-l-slate-300{% endif %}"
            data-cluster-id="{{ cluster.id }}"
-           onmouseenter="if (!window._scrolling) { clearTimeout(this._collapseTimeout); highlightCluster({{ cluster.id }}); expandCard(this); }"
-           onmouseleave="if(!window._clusterLocked) { var el = this; el._collapseTimeout = setTimeout(() => { unhighlightCluster(); collapseCard(el); }, 150); }"
+           onmouseenter="if (!window._scrolling) { clearTimeout(window._cardCollapseTimeout); highlightCluster({{ cluster.id }}); expandCard(this); }"
+           onmouseleave="if(!window._clusterLocked) { var el = this; window._cardCollapseTimeout = setTimeout(() => { unhighlightCluster(); collapseCard(el); }, 150); }"
            onclick="toggleLockCluster({{ cluster.id }}, this)">
         <div class="flex items-center gap-2 px-3 py-2">
           <span class="text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
@@ -157,25 +157,6 @@ function initFlavorMap2D() {
   });
   window._flavorMap2dInitialized = true;
 
-  // Debug: inspect customdata structure
-  var el = document.getElementById('flavor-map-2d');
-  if (el && el.data && el.data[0] && el.data[0].customdata) {
-    var cd = el.data[0].customdata;
-    console.log(`[DEBUG] Plotly customdata loaded:`);
-    console.log(`  Type: ${typeof cd}`);
-    console.log(`  Is Array: ${Array.isArray(cd)}`);
-    console.log(`  Length: ${cd.length}`);
-    console.log(`  First element type: ${typeof cd[0]}`);
-    console.log(`  First element: ${JSON.stringify(cd[0])}`);
-    console.log(`  cd[0][6] (cluster_id): ${cd[0][6]} (type: ${typeof cd[0][6]})`);
-    console.log(`  First 5 cluster IDs:`, cd.slice(0, 5).map(d => d[6]));
-    
-    // Count unique cluster IDs
-    var clusterIds = cd.map(d => d[6]);
-    var uniqueIds = Array.from(new Set(clusterIds));
-    console.log(`  Unique cluster IDs: ${uniqueIds.length} - ${JSON.stringify(uniqueIds.sort((a,b) => a-b))}`);
-  }
-
   // Store color arrays for toggling
   const clusterColors = plotlyData.layout.meta.cluster_colors;
   const familyColors = plotlyData.layout.meta.family_colors;
@@ -244,41 +225,36 @@ function initFlavorMap2D() {
     document.getElementById('panel-clusters').style.display = 'block';
   };
   
-  // Cancel highlighting when side panel is scrolled (prevents jump to adjacent cards)
-  var panelClusters = document.getElementById('panel-clusters');
-  if (panelClusters) {
-    // Flag to prevent mouseenter during/after scroll
-    window._scrolling = false;
-    window._scrollTimeout = null;
+  // Cancel highlighting when the page is scrolled (prevents jump to adjacent cards)
+  // The side panel is not independently scrollable — the window scrolls.
+  window._scrolling = false;
+  window._scrollTimeout = null;
+  
+  window.addEventListener('scroll', function() {
+    window._scrolling = true;
+    clearTimeout(window._scrollTimeout);
+    clearTimeout(window._cardCollapseTimeout);
     
-    panelClusters.addEventListener('scroll', function() {
-      window._scrolling = true;
-      clearTimeout(window._scrollTimeout);
-      
-      // If hovering (not locked), clear highlight
-      if (!window._clusterLocked && window._highlightActive) {
-        unhighlightCluster();
-        window._highlightActive = false;
-        // Also collapse any expanded cards
-        document.querySelectorAll('[data-cluster-id]').forEach(function(c) {
-          collapseCard(c);
-        });
-      }
-      
-      // Re-enable mouse events after scroll stops (debounce)
-      window._scrollTimeout = setTimeout(function() {
-        window._scrolling = false;
-      }, 300);  // 300ms debounce after scroll ends
-    }, { passive: true });
-  }
+    // If hovering (not locked), clear highlight and collapse all cards
+    if (!window._clusterLocked && window._highlightActive) {
+      unhighlightCluster();
+      document.querySelectorAll('[data-cluster-id]').forEach(function(c) {
+        collapseCard(c);
+      });
+    }
+    
+    // Re-enable mouse hover after scroll stops
+    window._scrollTimeout = setTimeout(function() {
+      window._scrolling = false;
+    }, 400);
+  }, { passive: true });
 }
-
-// Track if we're currently highlighting a cluster
-window._highlightActive = false;
 
 // Highlight points belonging to a cluster when hovering the side panel card
 window._clusterLocked = false;
 window._lockedClusterId = null;
+window._highlightActive = false;
+window._scrolling = false;
 
 function expandCard(el) {
   var body = el.querySelector('.cluster-body');
@@ -298,30 +274,15 @@ function highlightCluster(clusterId) {
   var el = document.getElementById('flavor-map-2d');
   if (!el || !el.data || !el.data[0]) return;
   var cd = el.data[0].customdata;
-  
-  // Convert clusterId to string for comparison (Plotly may store customdata as strings)
   var cid_str = String(clusterId);
   var cid_num = Number(clusterId);
-  
-  var matchCount = 0;
-  var sizes = cd.map(function(d) { 
-    // Try both string and number comparison to be safe
-    var d_cid = d[6];
-    var isMatch = (String(d_cid) === cid_str) || (Number(d_cid) === cid_num);
-    if (isMatch) matchCount++;
-    return isMatch ? 18 : 6; 
+  var sizes = cd.map(function(d) {
+    var isMatch = (String(d[6]) === cid_str) || (Number(d[6]) === cid_num);
+    return isMatch ? 18 : 6;
   });
-  var opacities = cd.map(function(d) { 
-    var d_cid = d[6];
-    var isMatch = (String(d_cid) === cid_str) || (Number(d_cid) === cid_num);
-    return isMatch ? 1 : 0.2; 
+  var opacities = cd.map(function(d) {
+    return ((String(d[6]) === cid_str) || (Number(d[6]) === cid_num)) ? 1 : 0.2;
   });
-  
-  console.log(`highlightCluster: clusterId=${clusterId}, matched ${matchCount}/${cd.length} points`);
-  if (matchCount === 0) {
-    console.warn(`No matches found! Debug: first 5 d[6] values:`, cd.slice(0, 5).map(d => d[6]));
-  }
-  
   window._highlightActive = true;
   Plotly.restyle('flavor-map-2d', {'marker.size': [sizes], 'marker.opacity': [opacities]});
 }
