@@ -45,18 +45,27 @@
   <!-- Plot (desktop: 2/3, mobile: full width) -->
   <div class="flex-1 min-w-0">
     <style>
-      /* Modebar tooltips: position below buttons, semi-transparent */
-      #flavor-map-2d .modebar-btn .icon-bar-tooltip,
-      #flavor-map-2d .modebar-group [data-title]::after {
-        top: 100% !important;
-        bottom: auto !important;
-      }
+      /* Modebar: semi-transparent, darken on hover */
       #flavor-map-2d .modebar {
         opacity: 0.6;
         transition: opacity 0.2s;
       }
       #flavor-map-2d .modebar:hover {
         opacity: 1;
+      }
+      /* Modebar tooltips: show above buttons (modebar is at top of plot, tooltip
+         would overlap chart content if shown below) */
+      #flavor-map-2d [data-title]::before,
+      #flavor-map-2d [data-title]::after {
+        top: auto !important;
+        bottom: 110% !important;
+      }
+      /* Arrow: flip from pointing-up to pointing-down */
+      #flavor-map-2d [data-title]::before {
+        border-top: 6px solid #000 !important;
+        border-bottom: 6px solid transparent !important;
+        top: auto !important;
+        bottom: calc(110% - 6px) !important;
       }
     </style>
     <div id="flavor-map-2d" style="height: 600px; width: 100%;"></div>
