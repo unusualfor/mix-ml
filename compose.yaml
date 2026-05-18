@@ -29,7 +29,7 @@ services:
       - caddy
 
   frontend:
-    image: ghcr.io/unusualfor/mix-ml-frontend:v1.3.3
+    image: ghcr.io/unusualfor/mix-ml-frontend:v1.3.4
     container_name: mix-ml-frontend
     environment:
       BACKEND_URL: "http://backend:8080"

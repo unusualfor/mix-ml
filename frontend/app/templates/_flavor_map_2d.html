@@ -70,7 +70,7 @@
       {% for cluster in clusters_2d %}
       <div class="bg-white border border-slate-200 rounded-lg transition-all duration-200 cursor-pointer hover:border-amber-300 hover:shadow-sm{% if cluster.id < 0 %} border-l-4 border-l-slate-300{% endif %}"
            data-cluster-id="{{ cluster.id }}"
-           onmouseenter="clearTimeout(this._collapseTimeout); highlightCluster({{ cluster.id }}); expandCard(this)"
+           onmouseenter="if (!window._scrolling) { clearTimeout(this._collapseTimeout); highlightCluster({{ cluster.id }}); expandCard(this); }"
            onmouseleave="if(!window._clusterLocked) { var el = this; el._collapseTimeout = setTimeout(() => { unhighlightCluster(); collapseCard(el); }, 150); }"
            onclick="toggleLockCluster({{ cluster.id }}, this)">
         <div class="flex items-center gap-2 px-3 py-2">
@@ -247,7 +247,14 @@ function initFlavorMap2D() {
   // Cancel highlighting when side panel is scrolled (prevents jump to adjacent cards)
   var panelClusters = document.getElementById('panel-clusters');
   if (panelClusters) {
+    // Flag to prevent mouseenter during/after scroll
+    window._scrolling = false;
+    window._scrollTimeout = null;
+    
     panelClusters.addEventListener('scroll', function() {
+      window._scrolling = true;
+      clearTimeout(window._scrollTimeout);
+      
       // If hovering (not locked), clear highlight
       if (!window._clusterLocked && window._highlightActive) {
         unhighlightCluster();
@@ -257,6 +264,11 @@ function initFlavorMap2D() {
           collapseCard(c);
         });
       }
+      
+      // Re-enable mouse events after scroll stops (debounce)
+      window._scrollTimeout = setTimeout(function() {
+        window._scrolling = false;
+      }, 300);  // 300ms debounce after scroll ends
     }, { passive: true });
   }
 }
