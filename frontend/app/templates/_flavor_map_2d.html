@@ -79,7 +79,7 @@
       {% for cluster in clusters_2d %}
       <div class="bg-white border border-slate-200 rounded-lg transition-all duration-200 cursor-pointer hover:border-amber-300 hover:shadow-sm{% if cluster.id < 0 %} border-l-4 border-l-slate-300{% endif %}"
            data-cluster-id="{{ cluster.id }}"
-           onmouseenter="if (!window._scrolling) { clearTimeout(window._cardCollapseTimeout); highlightCluster({{ cluster.id }}); expandCard(this); }"
+           onmouseenter="if (!window._scrolling) { clearTimeout(window._cardCollapseTimeout); document.querySelectorAll('[data-cluster-id]').forEach(function(c){ if(c!==this) collapseCard(c); }.bind(this)); highlightCluster({{ cluster.id }}); expandCard(this); }"
            onmouseleave="if(!window._clusterLocked) { var el = this; window._cardCollapseTimeout = setTimeout(() => { unhighlightCluster(); collapseCard(el); }, 150); }"
            onclick="toggleLockCluster({{ cluster.id }}, this)">
         <div class="flex items-center gap-2 px-3 py-2">
