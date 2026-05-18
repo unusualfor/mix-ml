@@ -3,7 +3,7 @@
   {% set statuses = [("can_make", "Can make"), ("cannot_make", "Cannot make")] %}
   {% for value, label in statuses %}
   <button
-    hx-get="/cocktails/can-make-now?status={{ value }}&category={{ category }}"
+    hx-get="/iba/can-make-now?status={{ value }}&category={{ category }}"
     hx-target="#cocktail-list"
     hx-swap="innerHTML"
     class="rounded-full px-4 py-2 text-sm font-medium transition-colors
@@ -21,7 +21,7 @@
   {% set categories = [("all", "All"), ("unforgettable", "Unforgettable"), ("contemporary", "Contemporary"), ("new_era", "New Era")] %}
   {% for value, label in categories %}
   <button
-    hx-get="/cocktails/can-make-now?category={{ value }}&status={{ status }}"
+    hx-get="/iba/can-make-now?category={{ value }}&status={{ status }}"
     hx-target="#cocktail-list"
     hx-swap="innerHTML"
     hx-indicator="#list-spinner"

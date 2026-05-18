@@ -23,25 +23,25 @@
 
   <!-- Sub-navigation: Heatmap vs 2D Map -->
   <div id="flavor-map-subnav" class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
-    <button id="btn-heatmap"
-            onclick="showView('heatmap')"
-            class="px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors">
-      Heatmap
-    </button>
     <button id="btn-2dmap"
             onclick="showView('2dmap')"
-            class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors">
+            class="px-4 py-2 text-sm font-medium rounded-md {% if default_view == '2dmap' %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-300 hover:bg-slate-100{% endif %} transition-colors">
       2D Map
+    </button>
+    <button id="btn-heatmap"
+            onclick="showView('heatmap')"
+            class="px-4 py-2 text-sm font-medium rounded-md {% if default_view == 'heatmap' %}bg-slate-900 text-white{% else %}bg-white text-slate-600 border border-slate-300 hover:bg-slate-100{% endif %} transition-colors">
+      Heatmap
     </button>
   </div>
 
   <!-- Tab content -->
   <div id="tab-content">
-    <div id="view-heatmap">
-      {% include "_flavor_map_heatmap.html" %}
-    </div>
-    <div id="view-2dmap" style="display:none;">
+    <div id="view-2dmap" {% if default_view != '2dmap' %}style="display:none;"{% endif %}>
       {% include "_flavor_map_2d.html" %}
+    </div>
+    <div id="view-heatmap" {% if default_view == '2dmap' %}style="display:none;"{% endif %}>
+      {% include "_flavor_map_heatmap.html" %}
     </div>
   </div>
 
@@ -49,6 +49,18 @@
 
 <script>
 // View toggle: Heatmap ↔ 2D Map
+// Init correct view on page load based on server-set default
+var _defaultView = {{ default_view | tojson }};
+if (_defaultView === '2dmap') {
+  if (typeof Plotly !== 'undefined') {
+    if (typeof initFlavorMap2D === 'function') initFlavorMap2D();
+  } else {
+    var _initCheck = setInterval(function() {
+      if (typeof Plotly !== 'undefined') { clearInterval(_initCheck); if (typeof initFlavorMap2D === 'function') initFlavorMap2D(); }
+    }, 100);
+  }
+}
+
 function showView(view) {
   document.getElementById('view-heatmap').style.display = view === 'heatmap' ? 'block' : 'none';
   document.getElementById('view-2dmap').style.display = view === '2dmap' ? 'block' : 'none';

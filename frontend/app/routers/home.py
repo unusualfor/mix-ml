@@ -33,6 +33,11 @@ def _render_list(request: Request, category: str = "all", status: str = "can_mak
 
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request):
+    return templates.TemplateResponse(request, "home.html", {})
+
+
+@router.get("/iba", response_class=HTMLResponse)
+def iba(request: Request):
     try:
         data = fetch_cocktails_can_make_now()
         items = data.get("items", [])
@@ -43,13 +48,13 @@ def home(request: Request):
         error = "backend_down"
 
     return templates.TemplateResponse(
-        request, "home.html",
+        request, "iba.html",
         {"items": items, "error": error, "category": "all", "status": "can_make"},
     )
 
 
-@router.get("/cocktails/can-make-now", response_class=HTMLResponse)
-def cocktails_can_make_now(
+@router.get("/iba/can-make-now", response_class=HTMLResponse)
+def iba_can_make_now(
     request: Request,
     category: str = "all",
     status: str = "can_make",
@@ -73,6 +78,6 @@ def cocktails_can_make_now(
         error = "backend_down"
 
     return templates.TemplateResponse(
-        request, "home.html",
+        request, "iba.html",
         {"items": items, "error": error, "category": category, "status": status},
     )

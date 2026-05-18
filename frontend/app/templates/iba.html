@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}mix-ml — What cocktail can I make?{% endblock %}
+
+{% block content %}
+<div id="main-content">
+<div class="mb-8">
+  <h1 class="text-3xl font-semibold text-slate-900">What can I make?</h1>
+  <p class="mt-1 text-slate-600">IBA Cocktails that can be prepared right now with the inventory.</p>
+</div>
+
+<!-- Cocktail list -->
+<div id="cocktail-list">
+  {% include "_cocktail_list.html" %}
+</div>
+</div>
+{% endblock %}

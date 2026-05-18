@@ -5,26 +5,26 @@
 
 <!-- Sub-navigation: Heatmap vs 2D Map -->
 <div class="flex gap-2 mb-6 border-b border-slate-200 pb-4">
-  <button id="btn-heatmap"
-          onclick="showView('heatmap')"
-          class="px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors">
-    Heatmap
-  </button>
   <button id="btn-2dmap"
           onclick="showView('2dmap')"
-          class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors">
+          class="px-4 py-2 text-sm font-medium rounded-md bg-slate-900 text-white transition-colors">
     2D Map
   </button>
+  <button id="btn-heatmap"
+          onclick="showView('heatmap')"
+          class="px-4 py-2 text-sm font-medium rounded-md bg-white text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors">
+    Heatmap
+  </button>
+</div>
+
+<!-- 2D Map view (default) -->
+<div id="view-2dmap">
+  {% include "_flavor_map_2d.html" %}
 </div>
 
 <!-- Heatmap view -->
-<div id="view-heatmap">
+<div id="view-heatmap" style="display:none;">
   {% include "_flavor_map_heatmap.html" %}
-</div>
-
-<!-- 2D Map view -->
-<div id="view-2dmap" style="display:none;">
-  {% include "_flavor_map_2d.html" %}
 </div>
 
 <script>
@@ -33,10 +33,11 @@ if (typeof Plotly === 'undefined') {
   var s = document.createElement('script');
   s.src = 'https://cdn.plot.ly/plotly-2.27.0.min.js';
   s.onload = function() {
-    // Re-execute 2D map init if Plotly loads after the inline script
     if (typeof initFlavorMap2D === 'function') initFlavorMap2D();
   };
   document.head.appendChild(s);
+} else {
+  if (typeof initFlavorMap2D === 'function') initFlavorMap2D();
 }
 
 // View toggle: Heatmap ↔ 2D Map

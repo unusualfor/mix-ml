@@ -118,3 +118,87 @@ affected feature shows a graceful error message; other features continue.
 | GET | `/shopping/optimize` | Run shopping optimization (HTMX partial) |
 | GET | `/healthz` | Liveness probe (always 200) |
 | GET | `/readyz` | Readiness probe (pings backend `/healthz`) |
+
+## 2D Flavor Map: Cluster Impressions
+
+The 2D flavor map uses UMAP for dimensionality reduction and **DBSCAN** for
+visual clustering on the 2D embedding. Each cluster and outlier gets a
+hand-written "impression" — a short paragraph explaining *why* those bottles
+group together (or don't).
+
+### The Problem
+
+Impressions are **static text tied to a specific bottle collection**. When you
+add/remove bottles, UMAP coordinates shift and DBSCAN may produce different
+clusters. The 75% overlap matching provides resilience against minor changes
+(1-2 bottles added to a cluster), but large inventory changes will trigger
+fallback to auto-generated impressions (bland "Top notes: X, Y, Z" text).
+
+### How It Works
+
+1. **Data file**: `frontend/app/data/cluster_impressions.json`
+   - Contains cluster compositions (bottle lists) and their impressions
+   - Contains per-bottle outlier explanations
+   - Loaded at module import time
+
+2. **Matching logic** (`flavor_map_2d_builder.py`):
+   - For each DBSCAN cluster: find the entry in `cluster_impressions.json`
+     whose bottle set has ≥75% overlap with the actual cluster
+   - For outliers: exact match on `(brand, label)` key
+   - Fallback: auto-generate from mean flavor profile
+
+3. **Calibration script**: `scripts/calibrate_clusters.py`
+   - Runs UMAP + DBSCAN against the live backend API
+   - Outputs cluster compositions as JSON
+   - Preserves existing impressions where overlap ≥75%
+   - Marks new/changed clusters with `TODO` placeholders
+
+### Workflow After Changing Your Inventory
+
+```bash
+# 1. Make sure backend is running with updated bottles
+docker compose up -d backend
+
+# 2. Run calibration to see new clusters
+python scripts/calibrate_clusters.py --backend-url http://localhost:8080
+
+# 3. Review output — check for TODO placeholders and shifted clusters.
+#    Adjust eps if clusters look wrong:
+python scripts/calibrate_clusters.py --eps 0.7
+
+# 4. Once satisfied, write the file (preserves existing impressions):
+python scripts/calibrate_clusters.py --write
+
+# 5. Edit frontend/app/data/cluster_impressions.json
+#    Replace any TODO lines with real impressions.
+
+# 6. Rebuild frontend
+docker compose up -d --build frontend
+```
+
+### For New Users Cloning This Repo
+
+If you import a completely different bottle collection:
+
+1. The 2D map will still render correctly (UMAP + DBSCAN work on any data)
+2. All impressions will be auto-generated (functional but generic)
+3. Run `scripts/calibrate_clusters.py --write` to generate a template
+4. Write your own impressions in `cluster_impressions.json`
+
+### DBSCAN Parameters
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `eps` | 0.6 | Neighborhood radius in UMAP 2D space. Larger = fewer clusters. Range [0.4–0.8] for typical collections of 30–80 bottles. |
+| `min_samples` | 2 | Minimum points to form a cluster. 2 means any pair of close bottles forms a cluster. |
+
+Typical UMAP coordinate range for ~40 bottles: x≈5, y≈6 units.
+
+### Alternatives Considered
+
+- **LLM-generated impressions at startup**: Would require an API key, adds
+  latency, and produces inconsistent prose across restarts. Ruled out.
+- **Pure auto-generation**: The fallback already does this. Works for
+  structure but lacks the editorial voice that makes impressions interesting.
+- **User-editable via UI**: Would need auth + persistence layer. Out of scope
+  for this project's philosophy (data lives in files, not databases).

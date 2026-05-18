@@ -13,7 +13,13 @@
   <div class="text-sm text-slate-600">
     <span class="font-medium">{{ bottle_count }} bottles</span> · 
     <span class="font-medium">{{ n_clusters_2d }} clusters</span> · 
-    <span class="text-xs text-slate-400">UMAP: n_neighbors=10, min_dist=0.3, metric=euclidean</span>
+    <span class="font-medium">{{ n_outliers_2d }} outliers</span>
+    <span class="text-xs text-slate-400 ml-2 cursor-help group relative">
+      🤓
+      <span class="invisible group-hover:visible absolute left-0 top-full mt-1 z-10 bg-slate-800 text-slate-100 text-xs rounded px-3 py-2 whitespace-nowrap shadow-lg">
+        UMAP(n_neighbors={{ map_2d_params.get('n_neighbors', '?') }}, min_dist={{ map_2d_params.get('min_dist', '?') }}, metric={{ map_2d_params.get('metric', '?') }}) · DBSCAN(eps={{ map_2d_params.get('dbscan_eps', '?') }}, min_samples={{ map_2d_params.get('dbscan_min_samples', '?') }}) · {{ map_2d_time }}
+      </span>
+    </span>
   </div>
   <!-- Color toggle -->
   <div class="flex items-center gap-3">
@@ -58,19 +64,25 @@
   <div class="w-full md:w-80 md:flex-shrink-0">
     
     <!-- Default state: cluster impressions list -->
-    <div id="panel-clusters" class="space-y-3">
+    <div id="panel-clusters" class="space-y-1.5">
       {% for cluster in clusters_2d %}
-      <div class="bg-white border border-slate-200 rounded-lg p-4 transition-all duration-200 cursor-pointer hover:border-amber-300 hover:shadow-sm"
+      <div class="bg-white border border-slate-200 rounded-lg transition-all duration-200 cursor-pointer hover:border-amber-300 hover:shadow-sm{% if cluster.id < 0 %} border-l-4 border-l-slate-300{% endif %}"
            data-cluster-id="{{ cluster.id }}"
-           onmouseenter="highlightCluster({{ cluster.id }})"
-           onmouseleave="if(!window._clusterLocked) unhighlightCluster()"
+           onmouseenter="highlightCluster({{ cluster.id }}); expandCard(this)"
+           onmouseleave="if(!window._clusterLocked) { unhighlightCluster(); collapseCard(this); }"
            onclick="toggleLockCluster({{ cluster.id }}, this)">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            Cluster {{ cluster.id + 1 }} · {{ cluster.size }} bottle{{ 's' if cluster.size > 1 else '' }}
+        <div class="flex items-center gap-2 px-3 py-2">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
+            {% if cluster.id < 0 %}&#x25cb;{% else %}{{ cluster.id + 1 }}{% endif %}
           </span>
+          <span class="text-sm font-medium text-slate-700 truncate">{{ cluster.title or 'Outlier' }}</span>
+          {% if cluster.size > 1 %}
+          <span class="text-xs text-slate-400 ml-auto whitespace-nowrap">{{ cluster.size }}</span>
+          {% endif %}
         </div>
-        <p class="text-sm text-slate-700 leading-relaxed">{{ cluster.impression }}</p>
+        <div class="cluster-body hidden px-3 pb-3">
+          <p class="text-xs text-slate-600 leading-relaxed">{{ cluster.impression }}</p>
+        </div>
       </div>
       {% endfor %}
     </div>
@@ -216,6 +228,19 @@ function initFlavorMap2D() {
 window._clusterLocked = false;
 window._lockedClusterId = null;
 
+function expandCard(el) {
+  var body = el.querySelector('.cluster-body');
+  if (body) body.classList.remove('hidden');
+}
+
+function collapseCard(el) {
+  // Don't collapse if this card is locked
+  var cid = parseInt(el.getAttribute('data-cluster-id'));
+  if (window._clusterLocked && window._lockedClusterId === cid) return;
+  var body = el.querySelector('.cluster-body');
+  if (body) body.classList.add('hidden');
+}
+
 function highlightCluster(clusterId) {
   if (window._clusterLocked && window._lockedClusterId !== clusterId) return;
   var el = document.getElementById('flavor-map-2d');
@@ -242,9 +267,10 @@ function toggleLockCluster(clusterId, cardEl) {
     window._clusterLocked = false;
     window._lockedClusterId = null;
     unhighlightCluster();
-    // Remove active style from all cards
+    // Remove active style and collapse all cards
     document.querySelectorAll('[data-cluster-id]').forEach(function(c) {
       c.classList.remove('border-amber-400', 'shadow-md');
+      collapseCard(c);
     });
     return;
   }

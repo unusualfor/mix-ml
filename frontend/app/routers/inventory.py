@@ -137,11 +137,22 @@ def _flavor_map_ctx(request: Request) -> dict:
     # Build clusters list for side panel (if 2D map is available)
     clusters_for_panel = []
     if map_2d:
-        for cluster_id in sorted(map_2d.cluster_impressions.keys()):
+        # Sort: real clusters first (ascending), then outliers (descending by id)
+        sorted_ids = sorted(
+            map_2d.cluster_impressions.keys(),
+            key=lambda x: (x < 0, -x if x < 0 else x),
+        )
+        for cluster_id in sorted_ids:
+            impression = map_2d.cluster_impressions.get(cluster_id, "")
+            # Extract title (text before " · ") for header display
+            title = impression.split(" \u00b7 ")[0] if " \u00b7 " in impression else ""
+            # Body is everything after "Title · "
+            body = impression.split(" \u00b7 ", 1)[1] if " \u00b7 " in impression else impression
             clusters_for_panel.append({
                 "id": cluster_id,
                 "size": map_2d.cluster_sizes.get(cluster_id, 0),
-                "impression": map_2d.cluster_impressions.get(cluster_id, ""),
+                "title": title,
+                "impression": body,
             })
 
     return {
@@ -161,13 +172,17 @@ def _flavor_map_ctx(request: Request) -> dict:
         "plotly_json": map_2d.plotly_json if map_2d else None,
         "clusters_2d": clusters_for_panel,
         "n_clusters_2d": map_2d.n_clusters if map_2d else 0,
+        "n_outliers_2d": sum(1 for k in (map_2d.cluster_sizes if map_2d else {}) if k < 0),
+        "map_2d_params": map_2d.umap_params if map_2d else {},
+        "map_2d_time": map_2d.generation_time if map_2d else "",
         "include_plotly": map_2d is not None,
     }
 
 
 @router.get("/inventory/flavor-map", response_class=HTMLResponse)
-def flavor_map_page(request: Request):
+def flavor_map_page(request: Request, view: str = "2d"):
     ctx = _flavor_map_ctx(request)
+    ctx["default_view"] = "heatmap" if view == "heatmap" else "2dmap"
 
     is_htmx = request.headers.get("HX-Request") == "true"
     hx_target = request.headers.get("HX-Target", "")

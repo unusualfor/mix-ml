@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 from plotly import colors as px_colors
+from sklearn.cluster import DBSCAN
 
 logger = logging.getLogger(__name__)
 
@@ -80,97 +81,54 @@ class FlavorMap2DData:
     generation_time: str = ""
 
 
+# DBSCAN on 2D UMAP embedding (visual clustering)
+_DBSCAN_EPS = 0.6
+_DBSCAN_MIN_SAMPLES = 2
+
+
 # ---------------------------------------------------------------------------
 # Impression loading & generation
 # ---------------------------------------------------------------------------
 
-# Pre-written impressions keyed by frozenset of (brand, label) tuples.
-# Matched against actual UMAP output (random_state=42).
-CLUSTER_IMPRESSIONS_BY_BOTTLES = {
-    frozenset([
-        ("Formidabile", None),
-        ("Montenegro", None),
-        ("Nonino", "Quintessentia"),
-        ("Aperol", None),
-        ("A. Smith Bowman", "John J. Bowman Single Barrel"),
-        ("Buffalo Trace", "Eagle Rare 10 Year"),
-        ("Buffalo Trace", "Kentucky Straight Bourbon"),
-        ("Buffalo Trace", "Blanton's Original Single Barrel"),
-        ("Buffalo Trace", "Elmer T. Lee Single Barrel Sour Mash"),
-        ("Buffalo Trace", "Barrel Select Sazerac"),
-        ("Buffalo Trace", "Colonel E.H. Taylor Small Batch"),
-        ("Calumet Farm", "Vintage Release 8 Years"),
-        ("Metaxa", "3 Stars"),
-        ("Tintura Imperiale", None),
-        ("Godo Shusei", "Oshuku Umeshu (Ohshukubai Shigoku Nidan)"),
-        ("Carpano", "Antica Formula"),
-        ("Martini", "Riserva Speciale Rubino"),
-        ("Mt Defiance", "Sweet Vermouth"),
-        ("Buffalo Trace", "Weller Special Reserve Single Barrel Select"),
-        ("Buffalo Trace", "Weller 12 Year"),
-        ("Maker's Mark", "101 Proof"),
-        ("Ragged Branch", "Wheated Bourbon"),
-    ]):
-        "Warming & structured · Vanilla, oak and body dominate. "
-        "Aged American whiskeys anchor the group, but Carpano Antica and "
-        "Mt Defiance Sweet Vermouth earn their place — both share the same "
-        "rich, slow character. Montenegro and Nonino bridge bitter and sweet "
-        "in the same warm register. Outliers (Tintura, Umeshu) land here on "
-        "sheer intensity and body.",
+_IMPRESSIONS_FILE = Path(__file__).resolve().parent.parent / "data" / "cluster_impressions.json"
 
-    frozenset([
-        ("Angostura", "Aromatic Bitters"),
-        ("Fusetti", "Bitter Mexico"),
-        ("Fusetti", "Bitter Cacao"),
-        ("Fusetti", "Bitter Original"),
-        ("Fusetti", "Bitter Mare"),
-        ("Fusetti", "Bitter Banana"),
-        ("Campari", None),
-        ("Carpano", "Punt e Mes"),
-    ]):
-        "Bitter italians · Dominant amaro and spice, anchored by citrus. "
-        "The backbone of aperitivo culture — from Campari to Angostura, "
-        "these define the Italian bitter hour.",
 
-    frozenset([
-        ("Komasa", "Komikan"),
-        ("Suntory", "Roku"),
-        ("Suntory", "Roku Sakura Edition"),
-        ("Tanqueray", "No. Ten"),
-        ("Pilla", "Select Aperitivo"),
-        ("Martini", "Riserva Speciale Ambrato"),
-        ("Martini", "Vermouth Rosso"),
-    ]):
-        "Aromatic & citrus-forward · Light-bodied, floral and herbaceous. "
-        "Gin is the core, but Select Aperitivo and Martini Ambrato share "
-        "enough botanical lift to cluster alongside. Martini Rosso drifts "
-        "here on its herbal-citrus balance.",
+def _load_impressions() -> tuple[dict[int, dict], dict[tuple[str, str | None], str]]:
+    """Load cluster and outlier impressions from external JSON file.
+    
+    Returns:
+        (cluster_compositions, noise_impressions) where:
+        - cluster_compositions: {cluster_id → {"bottles": frozenset, "impression": str}}
+        - noise_impressions: {(brand, label) → impression_str}
+    """
+    if not _IMPRESSIONS_FILE.exists():
+        logger.warning("Impressions file not found: %s", _IMPRESSIONS_FILE)
+        return {}, {}
+    
+    raw = json.loads(_IMPRESSIONS_FILE.read_text())
+    
+    clusters = {}
+    for cid_str, comp in raw.get("clusters", {}).items():
+        clusters[int(cid_str)] = {
+            "bottles": frozenset(
+                (b[0], b[1]) for b in comp.get("bottles", [])
+            ),
+            "impression": comp.get("impression", ""),
+        }
+    
+    outliers = {}
+    for _key, data in raw.get("outliers", {}).items():
+        # Parse key: "Brand__Label" or "Brand" (no label)
+        brand = _key.split("__")[0]
+        label = data.get("label")
+        outliers[(brand, label)] = data.get("impression", "")
+    
+    logger.debug("Loaded %d cluster impressions, %d outlier impressions", len(clusters), len(outliers))
+    return clusters, outliers
 
-    frozenset([
-        ("Tatsuuma-Honke", "Hakushika"),
-        ("Asahi Shuzo", "Dassai 45"),
-    ]):
-        "Delicate umami · Low intensity, subtle fruit, distinctive umami. "
-        "Japanese sake occupies its own quiet corner — nothing else in the "
-        "collection competes for this space.",
 
-    frozenset([
-        ("Koval", "Thresh & Winnow Foret"),
-        ("D'Argo", "Chandolia Mastiha"),
-    ]):
-        "Resinous botanicals · Two bottles from different worlds — "
-        "a Chicago forest gin and a Chios mastic liqueur — that share "
-        "a rare quality: they taste like somewhere specific. "
-        "Resinous, herb-heavy, with a mentholated edge.",
-
-    frozenset([
-        ("Braulio", "Riserva Speciale"),
-        ("Cynar", None),
-    ]):
-        "Alpine & artichoke bitterness · Both reach deep into bitter-herbal "
-        "territory — Braulio via mountain herbs, Cynar via artichoke. "
-        "Interchangeable in some stirred cocktail contexts.",
-}
+# Loaded at module import time (cached for process lifetime)
+CLUSTER_COMPOSITIONS, NOISE_IMPRESSIONS = _load_impressions()
 
 
 def _auto_impression(bottles_in_cluster: list[dict]) -> str:
@@ -200,8 +158,10 @@ def get_cluster_impression(
 ) -> str:
     """Match cluster to pre-written impression by bottle identity.
     
+    For real clusters (id >= 0): matches against CLUSTER_COMPOSITIONS
+    using 75% overlap threshold.
+    For noise (id < 0): should not be called (use get_noise_impression).
     Falls back to auto-generate for unmatched clusters.
-    Uses 75% overlap threshold for robustness against minor UMAP drift.
     """
     # Build identity key for this cluster
     cluster_key = frozenset(
@@ -209,24 +169,29 @@ def get_cluster_impression(
         for b in bottles_in_cluster
     )
     
-    # Exact match
-    if cluster_key in CLUSTER_IMPRESSIONS_BY_BOTTLES:
-        return CLUSTER_IMPRESSIONS_BY_BOTTLES[cluster_key]
-    
-    # Overlap match: find best-matching known impression (≥75% overlap)
+    # Find best-matching composition (≥75% overlap)
     best_overlap = 0.0
     best_impression = None
-    for known_key, impression in CLUSTER_IMPRESSIONS_BY_BOTTLES.items():
+    for _cid, comp in CLUSTER_COMPOSITIONS.items():
+        known_key = comp["bottles"]
         overlap = len(cluster_key & known_key) / max(len(known_key), 1)
         if overlap > best_overlap:
             best_overlap = overlap
-            best_impression = impression
+            best_impression = comp["impression"]
     
     if best_overlap >= 0.75 and best_impression:
         return best_impression
     
     # Auto-generate for unmatched
     return _auto_impression(bottles_in_cluster)
+
+
+def get_noise_impression(bottle: dict) -> str:
+    """Get per-bottle impression for a DBSCAN noise point (outlier)."""
+    key = (bottle.get("brand", "Unknown"), bottle.get("label") or None)
+    if key in NOISE_IMPRESSIONS:
+        return NOISE_IMPRESSIONS[key]
+    return _auto_impression([bottle])
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +230,30 @@ def _fit_umap(feature_matrix: np.ndarray) -> np.ndarray:
     return embedding
 
 
+def _cluster_dbscan(
+    embedding: np.ndarray,
+    bottles: list[dict],
+) -> dict[int, int]:
+    """Run DBSCAN on 2D UMAP embedding. Returns {bottle_id → cluster_id}.
+    
+    Noise points (label -1) are kept as cluster_id = -1.
+    """
+    db = DBSCAN(eps=_DBSCAN_EPS, min_samples=_DBSCAN_MIN_SAMPLES)
+    labels = db.fit_predict(embedding)
+    
+    assignments = {}
+    for i, bottle in enumerate(bottles):
+        assignments[bottle["id"]] = int(labels[i])
+    
+    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise = int((labels == -1).sum())
+    logger.info(
+        "DBSCAN: eps=%.2f min_samples=%d → %d clusters, %d noise points",
+        _DBSCAN_EPS, _DBSCAN_MIN_SAMPLES, n_clusters, n_noise,
+    )
+    return assignments
+
+
 # ---------------------------------------------------------------------------
 # Plotly figure building
 # ---------------------------------------------------------------------------
@@ -296,10 +285,13 @@ def _build_plotly_figure(
     
     for bottle in bottles:
         bottle_id = bottle["id"]
-        cluster_id = cluster_assignments.get(bottle_id, 0)
+        cluster_id = cluster_assignments.get(bottle_id, -1)
         
-        # Colors
-        cluster_color = _CLUSTER_COLORS[cluster_id % len(_CLUSTER_COLORS)]
+        # Colors (noise = grey)
+        if cluster_id < 0:
+            cluster_color = "#9ca3af"  # grey-400 for outliers
+        else:
+            cluster_color = _CLUSTER_COLORS[cluster_id % len(_CLUSTER_COLORS)]
         family_color = _FAMILY_COLOR_MAP.get(bottle.get("family_name", "Misc"), "#6b7280")
         cluster_colors.append(cluster_color)
         family_colors.append(family_color)
@@ -321,6 +313,7 @@ def _build_plotly_figure(
         
         # Customdata: [id, brand, label, class_name, family, top3_str, cluster_id, impression, on_hand, full_profile_json, cluster_display]
         full_profile_json = json.dumps(profile)
+        cluster_display = "Outlier" if cluster_id < 0 else f"Cluster {cluster_id + 1}"
         customdata.append([
             bottle_id,
             bottle.get("brand", "Unknown"),
@@ -332,14 +325,14 @@ def _build_plotly_figure(
             cluster_impressions.get(cluster_id, ""),
             1 if bottle.get("on_hand") else 0,
             full_profile_json,
-            cluster_id + 1,  # 1-indexed for display
+            cluster_display,
         ])
     
     # Hover template
     hovertemplate = (
         "<b>%{text}</b><br>"
         "<i>%{customdata[3]}</i> · %{customdata[4]}<br>"
-        "Cluster %{customdata[10]}<br>"
+        "%{customdata[10]}<br>"
         "<br>"
         "Top notes: %{customdata[5]}<br>"
         "<extra></extra>"
@@ -416,13 +409,16 @@ def _build_plotly_figure(
 
 def build_flavor_map_2d(
     bottles: list[dict],
-    cluster_assignments: dict[int, int],
+    cluster_assignments: dict[int, int] | None = None,
 ) -> FlavorMap2DData:
     """Build 2D flavor map with UMAP projection and interactive Plotly figure.
     
+    Clustering is done via DBSCAN on the 2D UMAP embedding (visual clusters).
+    The cluster_assignments parameter (from heatmap) is ignored.
+    
     Args:
         bottles: List of bottle dicts with flavor_profile, brand, label, etc.
-        cluster_assignments: {bottle_id → cluster_id} from FlavorMatrixData
+        cluster_assignments: Ignored (kept for API compat). DBSCAN used instead.
     
     Returns:
         FlavorMap2DData with plotly_json, cluster_impressions, generation_time
@@ -443,33 +439,50 @@ def build_flavor_map_2d(
     feature_matrix = _build_feature_matrix(bottles_with_profile)
     embedding = _fit_umap(feature_matrix)
     
-    # Build cluster impressions
-    cluster_id_to_bottles = {}
+    # Cluster on 2D embedding via DBSCAN
+    dbscan_assignments = _cluster_dbscan(embedding, bottles_with_profile)
+    
+    # Split noise into individual outlier IDs (-1, -2, -3, ...)
+    # so each outlier gets its own panel card and impression.
+    noise_counter = 0
     for bottle in bottles_with_profile:
-        cid = cluster_assignments.get(bottle["id"], 0)
+        if dbscan_assignments.get(bottle["id"], -1) == -1:
+            noise_counter += 1
+            dbscan_assignments[bottle["id"]] = -noise_counter  # -1, -2, -3...
+    
+    # Build cluster-to-bottles mapping
+    cluster_id_to_bottles: dict[int, list[dict]] = {}
+    for bottle in bottles_with_profile:
+        cid = dbscan_assignments.get(bottle["id"], -1)
         if cid not in cluster_id_to_bottles:
             cluster_id_to_bottles[cid] = []
         cluster_id_to_bottles[cid].append(bottle)
     
     # Log cluster composition for debugging / verification
-    for cid in sorted(cluster_id_to_bottles):
+    for cid in sorted(cluster_id_to_bottles, key=lambda x: (x < 0, abs(x))):
         cbs = cluster_id_to_bottles[cid]
         names = ", ".join(
             f"{b['brand']} {b.get('label') or ''}".strip() for b in cbs
         )
-        logger.info("Cluster %d (%d bottles): %s", cid, len(cbs), names)
+        label = f"Cluster {cid}" if cid >= 0 else f"Outlier ({names})"
+        logger.info("%s (%d bottles): %s", label, len(cbs), names)
     
+    # Build impressions: clusters via composition match, outliers per-bottle
     cluster_impressions = {}
     cluster_sizes = {}
     for cid, cluster_bottles in cluster_id_to_bottles.items():
-        cluster_impressions[cid] = get_cluster_impression(cid, cluster_bottles)
+        if cid >= 0:
+            cluster_impressions[cid] = get_cluster_impression(cid, cluster_bottles)
+        else:
+            # Single-bottle outlier
+            cluster_impressions[cid] = get_noise_impression(cluster_bottles[0])
         cluster_sizes[cid] = len(cluster_bottles)
     
     # Build Plotly figure
     plotly_json = _build_plotly_figure(
         bottles_with_profile,
         embedding,
-        cluster_assignments,
+        dbscan_assignments,
         cluster_impressions,
     )
     
@@ -480,11 +493,13 @@ def build_flavor_map_2d(
         plotly_json=plotly_json,
         cluster_impressions=cluster_impressions,
         cluster_sizes=cluster_sizes,
-        n_clusters=len(cluster_id_to_bottles),
+        n_clusters=len([k for k in cluster_id_to_bottles if k >= 0]),
         umap_params={
             "n_neighbors": min(10, len(bottles_with_profile) - 1),
             "min_dist": _UMAP_PARAMS["min_dist"],
             "metric": _UMAP_PARAMS["metric"],
+            "dbscan_eps": _DBSCAN_EPS,
+            "dbscan_min_samples": _DBSCAN_MIN_SAMPLES,
         },
         generation_time=generation_time,
     )

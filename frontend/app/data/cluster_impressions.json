@@ -1,0 +1,111 @@
+{
+  "_meta": {
+    "description": "Pre-written cluster impressions for the 2D flavor map (UMAP + DBSCAN).",
+    "generated_with": "scripts/calibrate_clusters.py",
+    "umap_random_state": 42,
+    "dbscan_eps": 0.6,
+    "dbscan_min_samples": 2,
+    "note": "Regenerate after adding/removing bottles. Auto-generation kicks in for unmatched clusters."
+  },
+  "clusters": {
+    "0": {
+      "bottles": [
+        ["Braulio", "Riserva Speciale"],
+        ["Formidabile", null],
+        ["D'Argo", "Chandolia Mastiha"],
+        ["Tintura Imperiale", null]
+      ],
+      "impression": "Extreme botanicals \u00b7 Four bottles with nothing in common on the label, everything in common in the glass. Alpine herbs, damask rose, Chios mastic and 90% anise \u2014 all intensely aromatic, all transformative in small doses. Use any of these and the drink knows it."
+    },
+    "1": {
+      "bottles": [
+        ["Montenegro", null],
+        ["Nonino", "Quintessentia"],
+        ["Angostura", "Aromatic Bitters"],
+        ["Fusetti", "Bitter Original"],
+        ["Fusetti", "Bitter Cacao"],
+        ["Fusetti", "Bitter Banana"],
+        ["Fusetti", "Bitter Mexico"],
+        ["Fusetti", "Bitter Mare"],
+        ["Campari", null],
+        ["Cynar", null],
+        ["Carpano", "Punt e Mes"],
+        ["Martini", "Riserva Speciale Rubino"]
+      ],
+      "impression": "Italian bitter \u00b7 The backbone of aperitivo culture. Twelve bottles spanning the full spectrum from Campari\u2019s citrus-bitter to Cynar\u2019s earthy artichoke to Angostura\u2019s aromatic spice. The largest cluster in the collection \u2014 because this is what the bar is built around."
+    },
+    "2": {
+      "bottles": [
+        ["Buffalo Trace", "Kentucky Straight Bourbon"],
+        ["Buffalo Trace", "Eagle Rare 10 Year"],
+        ["Buffalo Trace", "Blanton's Original Single Barrel"],
+        ["Buffalo Trace", "Weller 12 Year"],
+        ["Buffalo Trace", "Weller Special Reserve Single Barrel Select"],
+        ["Buffalo Trace", "Elmer T. Lee Single Barrel Sour Mash"],
+        ["Buffalo Trace", "Barrel Select Sazerac"],
+        ["A. Smith Bowman", "John J. Bowman Single Barrel"],
+        ["Calumet Farm", "Vintage Release 8 Years"],
+        ["Maker's Mark", "101 Proof"],
+        ["Ragged Branch", "Wheated Bourbon"]
+      ],
+      "impression": "American whiskey \u00b7 Eleven bourbons in tight formation \u2014 vanilla, oak and caramel with varying wheat-rye balance. The most internally coherent cluster in the collection. Small differences matter here: the wheated bottles sit slightly apart from the high-rye mashbills."
+    },
+    "3": {
+      "bottles": [
+        ["Buffalo Trace", "Colonel E.H. Taylor Small Batch"],
+        ["Mt Defiance", "Sweet Vermouth"]
+      ],
+      "impression": "Structured complexity \u00b7 The collection\u2019s most unexpected pairing. A Virginia small-batch bourbon and an apple-brandy-based sweet vermouth from the same state \u2014 separated by category, united by structured caramel, body and a shared unhurried weight. A reminder that flavor doesn\u2019t respect labels."
+    },
+    "4": {
+      "bottles": [
+        ["Komasa", "Komikan"],
+        ["Suntory", "Roku"],
+        ["Suntory", "Roku Sakura Edition"],
+        ["Tanqueray", "No. Ten"]
+      ],
+      "impression": "Core gin \u00b7 Citrus, floral and botanical \u2014 the gin cluster without the outliers. Tanqueray anchors the citrus pole, the three Japanese gins bring floral lift and a softer juniper presence. All four work in any classic gin cocktail."
+    },
+    "5": {
+      "bottles": [
+        ["Tatsuuma-Honke", "Hakushika"],
+        ["Asahi Shuzo", "Dassai 45"]
+      ],
+      "impression": "Japanese sake \u00b7 Two bottles, one quiet corner of the collection. Low intensity, delicate umami, subtle fruit. Nothing else in the bar competes for this flavor space \u2014 which is exactly why they cluster alone."
+    }
+  },
+  "outliers": {
+    "Aperol": {
+      "label": null,
+      "impression": "Between worlds \u00b7 Too light and orange-sweet for the bitter cluster, too amaro-tinged for the gin cluster. Aperol Spritz works because Aperol needs Prosecco to find its place \u2014 in pure flavor space it stands alone."
+    },
+    "Koval__Thresh & Winnow Foret": {
+      "label": "Thresh & Winnow Foret",
+      "impression": "Forest outlier \u00b7 The most botanical gin in the collection by far. Close to the extreme botanicals cluster (Braulio, Mastiha) but too gin-structured to fully merge. A bridge between two worlds that belongs to neither."
+    },
+    "Metaxa__3 Stars": {
+      "label": "3 Stars",
+      "impression": "Greek brandy island \u00b7 Muscat wine base plus Mediterranean herbs creates a profile with no close neighbor. Fruity enough to drift toward gin, structured enough to drift toward bourbon \u2014 but not close enough to either."
+    },
+    "Pilla__Select Aperitivo": {
+      "label": "Select Aperitivo",
+      "impression": "Venetian aperitivo bridge \u00b7 Select sits between the gin cluster and the bitter cluster, sharing botanical character with the former and bitter-citrus with the latter. The original Spritz ingredient that predates Aperol \u2014 and more complex than either cluster captures."
+    },
+    "Godo Shusei__Oshuku Umeshu (Ohshukubai Shigoku Nidan)": {
+      "label": "Oshuku Umeshu (Ohshukubai Shigoku Nidan)",
+      "impression": "Plum solitude \u00b7 Double-macerated ume plums produce an extreme sweet-tart profile unlike anything else in the collection. Too fruity-acidic for sake cluster, too sweet for anywhere else. Nearest neighbor is Dassai 45, but the distance is significant."
+    },
+    "Martini__Riserva Speciale Ambrato": {
+      "label": "Riserva Speciale Ambrato",
+      "impression": "Amber bridge \u00b7 Sits between the gin botanical cluster and the vermouth territory. Its amber-honey-chamomile profile is too distinctive to merge with either \u2014 a vermouth that behaves like a liqueur."
+    },
+    "Carpano__Antica Formula": {
+      "label": "Antica Formula",
+      "impression": "Noble outlier \u00b7 The most structured vermouth in the collection gravitates toward the bourbon cluster on vanilla and body, but its bitter complexity keeps it from fully joining. Lives at the intersection of two worlds \u2014 which is why it makes both a Manhattan and a Negroni exceptional."
+    },
+    "Martini__Vermouth Rosso": {
+      "label": "Vermouth Rosso",
+      "impression": "Entry-point vermouth \u00b7 Light enough to drift toward the gin cluster, amaro-adjacent enough to brush the bitter cluster. The most \u2018average\u2019 vermouth in the collection \u2014 versatile precisely because it commits to nothing extreme."
+    }
+  }
+}

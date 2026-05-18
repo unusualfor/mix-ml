@@ -14,6 +14,8 @@ def _generate_flavor_matrix(app: FastAPI) -> None:
     import logging
     import time
 
+    logging.basicConfig(level=logging.INFO)
+
     import httpx
 
     from app.client import fetch_all_bottles
