@@ -52,7 +52,8 @@ def fetch_bottles(backend_url: str) -> list[dict]:
     """Fetch bottles with flavor profiles from backend."""
     resp = httpx.get(f"{backend_url}/api/bottles", timeout=30)
     resp.raise_for_status()
-    bottles = resp.json()
+    data = resp.json()
+    bottles = data["items"] if isinstance(data, dict) and "items" in data else data
     return [b for b in bottles if b.get("flavor_profile")]
 
 
