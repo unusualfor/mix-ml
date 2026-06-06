@@ -78,13 +78,13 @@ oc logs -f job/seed-job -n mix-ml
 ```
 
 To update seed data:
-1. Edit `scripts/data/bottles_seed.json`
-2. Run `cd scripts && python generate_seed_sql.py ...`
-3. Copy result to `manifests/base/seed.sql`
-4. Commit and push
-5. ArgoCD detects change and re-seeds automatically on sync
+1. Edit `scripts/data/bottles_seed.json` (or use `./scripts/add-bottle.sh --regen-seed` against a running local stack — it does steps 1–3 in one go).
+2. `cd scripts && python generate_seed_sql.py data/iba_cocktails_normalized.json` (reads `bottles_seed.json` automatically).
+3. `cp scripts/seed.sql manifests/base/seed.sql && cp scripts/seed.sql db/seed.sql`.
+4. Commit and push.
+5. ArgoCD detects change and re-seeds automatically on the next PostSync hook.
 
-See [root README: Database Seeding](../README.md#database-seeding) for full workflow.
+See [root README: Getting Started With Your Own Bottles](../README.md#getting-started-with-your-own-bottles) for the live-stack workflow.
 
 ## GitOps Flow
 

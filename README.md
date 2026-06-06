@@ -34,24 +34,34 @@ A data-driven cocktail platform with inventory management, interactive flavor ma
 
 ### Option 1: Docker Compose (simplest)
 
+The base `compose.yaml` joins backend and frontend to the external `caddy` network (used in production behind a reverse proxy) and does not publish ports. For local development you'll usually want to layer `compose.build.yaml` on top, which exposes `127.0.0.1:3000` (frontend) and `127.0.0.1:8080` (backend) and builds from source:
+
 ```bash
-docker compose up -d
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
 This starts:
 - **Frontend**: http://localhost:3000
-- **Backend**: http://localhost:8080  
-- **PostgreSQL**: Automatically seeded with IBA recipes + default bottles
+- **Backend**: http://localhost:8080
+- **PostgreSQL**: Automatically seeded with IBA recipes + default bottles (initdb hook on `db/seed.sql`)
+
+Production-style run (pull images from ghcr.io, no local build, expects caddy in front):
+
+```bash
+docker compose up -d
+```
 
 To rebuild after code changes:
 ```bash
-docker compose up -d --build
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
-To reset data and reseed:
+To reset data and reseed (wipes the `pgdata` volume):
 ```bash
 docker compose down -v && docker compose up -d
 ```
+
+For adding/editing bottles **without** wiping the volume, use `./scripts/add-bottle.sh` — see [Getting Started With Your Own Bottles](#getting-started-with-your-own-bottles).
 
 ### Option 2: Local Development
 
@@ -80,79 +90,101 @@ For production-grade deployment with ArgoCD, see [OpenShift GitOps Setup](#opens
 
 ## Getting Started With Your Own Bottles
 
-This repo comes with ~42 default bottles. To adapt it to your personal collection:
+This repo comes with ~44 default bottles. Two flows depending on what you're doing.
 
-### 1. Define Your Bottle Inventory
+### Flow A — Add one bottle to a running stack (recommended)
 
-Edit `scripts/data/bottles_seed.json` with your bottles:
-
-```json
-[
-  {
-    "brand": "Talisker",
-    "label": "10 Year Old",
-    "family": "Whiskey",
-    "flavor_profile": {
-      "sweet": 1,
-      "bitter": 3,
-      "sour": 0,
-      "citrusy": 1,
-      "fruity": 2,
-      "herbal": 1,
-      "floral": 0,
-      "spicy": 2,
-      "smoky": 4,
-      "vanilla": 1,
-      "woody": 2,
-      "minty": 1,
-      "earthy": 1,
-      "umami": 0,
-      "body": 4,
-      "intensity": 4
-    },
-    "on_hand": true
-  }
-]
-```
-
-Each `flavor_profile` value is 0–5 (0 = not present, 5 = dominant).
-
-### 2. Generate Database Seed
+Bring the stack up with backend and frontend ports published on localhost (the script defaults to `http://127.0.0.1:8080` for the backend and `http://127.0.0.1:3000` for the frontend; override with `BACKEND_HOST=` / `FRONTEND_HOST=` if you publish elsewhere):
 
 ```bash
-cd scripts
-python generate_seed_sql.py data/bottles_seed.json data/iba_cocktails_normalized.json
+docker compose -f compose.yaml -f compose.build.yaml up -d
 ```
 
-This outputs `seed.sql` with both your bottles and the 102 IBA recipes.
-
-### 3. Update the Database
-
-For Docker:
-```bash
-cp scripts/seed.sql db/seed.sql
-docker compose down -v && docker compose up -d
-```
-
-For local dev:
-```bash
-psql -U cocktailuser -d cocktails -a -f scripts/seed.sql
-```
-
-### 4. Calibrate the 2D Flavor Map Impressions (Optional)
-
-When you change your bottle collection significantly, the UMAP clustering may shift. To keep cluster impressions accurate:
+Then run the orchestrator:
 
 ```bash
-# Regenerate cluster compositions with your live backend
-python scripts/calibrate_clusters.py --backend-url http://localhost:8080 --write
-
-# Edit cluster_impressions.json to replace "TODO" placeholders with real descriptions
-# Then rebuild frontend
-docker compose up -d --build frontend
+# Write a single bottle definition to a JSON file (see schema below),
+# then run:
+./scripts/add-bottle.sh /tmp/new_bottle.json
 ```
 
-For details, see [2D Flavor Map Calibration](#2d-flavor-map-calibration-detailed).
+What it does, in order:
+
+1. Validates JSON shape (16 flavor dimensions, required keys).
+2. Appends to `scripts/data/bottles_seed.json` — idempotent by `(brand, label)`, so re-running is safe.
+3. `POST /api/bottles/_bulk` — upserts the full seed into the live database. **No `docker compose down -v`** needed.
+4. `GET /inventory/flavor-map/regenerate` — frontend re-runs UMAP + DBSCAN against the new state.
+5. `docker exec mix-ml-frontend python -m app._tools.calibrate --write` — refreshes `frontend/app/data/cluster_impressions.json` inside the container (the file is bind-mounted, so the change lands on the host immediately). Curated impressions whose bottle set overlaps the new cluster by ≥75% are preserved; new clusters get a `<Primary>-leaning · TODO:` placeholder.
+6. Prints the clusters and outliers that still need a curated impression.
+7. Prints a suggested `git add … && git commit …`. **Never auto-commits.**
+
+After the script finishes:
+
+```bash
+# Hand-write impressions for any TODO clusters the script flagged
+$EDITOR frontend/app/data/cluster_impressions.json
+
+# Frontend picks up the new text on the next request (file is bind-mounted
+# and read with an mtime-aware cache). Restart only needed if you also want
+# to clear the cached 2D map: docker compose restart frontend.
+
+# Then commit the bottle + curated impressions
+git add scripts/data/bottles_seed.json frontend/app/data/cluster_impressions.json
+git commit -m "feat(bottles): add <name>"
+git push
+```
+
+**Optional flag:** `./scripts/add-bottle.sh --regen-seed new_bottle.json` also rewrites `scripts/seed.sql` and `db/seed.sql` so a future `docker compose down -v && up -d` reseed includes the new bottle without API replay.
+
+**Re-cluster without adding a bottle:** if you tweaked a flavor profile in place, run `./scripts/regen-flavor-map.sh` — same regen + calibrate + TODO surface, no DB write.
+
+### Flow B — Cold start with a custom inventory (first deploy)
+
+Use this when you want a fresh DB seeded entirely from `bottles_seed.json` instead of replaying the API.
+
+1. Edit `scripts/data/bottles_seed.json`. One entry per bottle:
+
+   ```json
+   {
+     "class_name": "Single Malt Scotch (peated)",
+     "brand": "Talisker",
+     "label": "10 Year Old",
+     "abv": 45.8,
+     "on_hand": true,
+     "flavor_profile": {
+       "sweet": 1, "bitter": 3, "sour": 0, "citrusy": 1,
+       "fruity": 2, "herbal": 1, "floral": 0, "spicy": 2,
+       "smoky": 4, "vanilla": 1, "woody": 2, "minty": 1,
+       "earthy": 1, "umami": 0, "body": 4, "intensity": 4
+     },
+     "notes": null
+   }
+   ```
+
+   `class_name` must exist in the ingredient hierarchy in `scripts/generate_seed_sql.py` (or be added to it). Each `flavor_profile` value is 0–5 (0 = not present, 5 = dominant).
+
+2. Regenerate the seed:
+
+   ```bash
+   cd scripts && python generate_seed_sql.py data/iba_cocktails_normalized.json
+   cp seed.sql ../db/seed.sql
+   ```
+
+   The script reads `bottles_seed.json` automatically.
+
+3. Reseed Postgres and bring the stack up:
+
+   ```bash
+   docker compose down -v && docker compose up -d
+   ```
+
+4. Calibrate impressions against the fresh collection:
+
+   ```bash
+   ./scripts/regen-flavor-map.sh
+   ```
+
+   Edit any `TODO`-flagged impressions, then commit `bottles_seed.json`, `db/seed.sql`, `scripts/seed.sql`, and `frontend/app/data/cluster_impressions.json`.
 
 ## Features in Detail
 
@@ -168,10 +200,12 @@ The crown jewel: a zoomable, pannable scatter plot of your entire bottle collect
 - **Impression summaries**: Each cluster has a human-written explanation of why those bottles cluster together
 
 **Technical details:**
-- UMAP parameters: `n_neighbors=10`, `min_dist=0.3`, `metric=euclidean`
+- UMAP parameters: `n_neighbors=10`, `min_dist=0.3`, `metric=euclidean`, `random_state=42` (deterministic given stable bottle order)
 - DBSCAN parameters: `eps=0.6`, `min_samples=2` (tunable, see calibration)
+- Bottle order from `/api/bottles` is fully deterministic (`ORDER BY ic.name, b.brand, b.label NULLS FIRST, b.id`); without this UMAP gave different clusters for `limit=100` vs `limit=200` callers
 - Plotly.js for rendering (client-side pan/zoom/click)
-- Cluster impressions stored in `frontend/app/data/cluster_impressions.json`
+- Cluster impressions stored in `frontend/app/data/cluster_impressions.json` — **bind-mounted into the frontend container**, so edits don't require an image rebuild (an mtime-aware cache picks up changes between requests)
+- Auto-generated impressions follow the format `<Primary>-leaning · Signature notes: …` so the panel always extracts a real title (never falls back to "Outlier" for a real cluster)
 
 ### Heatmap
 
@@ -217,13 +251,23 @@ For the full backend REST API:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/bottles` | Your bottle inventory (JSON) |
+| GET | `/api/bottles` | Your bottle inventory (paginated `{total, items}`) |
+| POST | `/api/bottles` | Create one bottle |
+| POST | `/api/bottles/_bulk` | Idempotent upsert by `(brand, label)` — used by `scripts/add-bottle.sh` |
+| PATCH | `/api/bottles/{id}` | Update bottle (flavor profile, on-hand, etc.) |
+| DELETE | `/api/bottles/{id}` | Remove a bottle |
 | GET | `/api/recipes` | IBA recipes with `?category=` filter |
 | GET | `/api/cocktails/can-make-now` | Feasible recipe IDs + names |
 | GET | `/api/flavor/distance?bottle_a=X&bottle_b=Y` | Flavor distance breakdown |
 | GET | `/api/flavor/similar-bottles?bottle_id=X` | Ranked neighbors |
 | GET | `/api/cocktails/{id}/substitutions` | Per-recipe alternatives |
 | GET | `/api/bottles/optimize-shopping?budget=K` | ILP K-bottle purchase plan |
+
+Frontend also exposes one dev/operational hook:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/inventory/flavor-map/regenerate` | Re-runs UMAP + DBSCAN on the live frontend without restart — used by `scripts/add-bottle.sh` |
 
 Full interactive docs at http://localhost:8080/docs (running backend required).
 
@@ -263,21 +307,19 @@ Stack:
 - **Interactivity**: HTMX (CDN) for form submission without page reload
 - **Styling**: Tailwind CSS (CDN dev, precompiled CSS prod)
 - **2D Map**: Plotly.js (CDN) for interactive scatter plot
-- **Clustering**: SciPy (UMAP + DBSCAN server-side)
+- **Clustering**: `umap-learn` (2D projection) + `scikit-learn` DBSCAN + SciPy hierarchical clustering (heatmap)
 
 Setup: `frontend/README.md`
 
 ### Database (`db/`)
 
-PostgreSQL 16 schema with:
-- `recipes` — 102 IBA cocktails
-- `recipe_ingredients` — ingredients per recipe (with amounts/units)
-- `bottles` — your personal inventory
-- `bottle_flavors` — 16-dimensional flavor profiles
-- `ingredient_classes` — taxonomy (spirits, bitters, juices, etc.)
-- `is_commodity` flag for assumed-available ingredients
+PostgreSQL 16 schema (singular table names; see `scripts/generate_seed_sql.py:260` for full DDL):
+- `recipe` — 102 IBA cocktails
+- `recipe_ingredient` — many-to-many with amount, unit, optional/garnish flags, alternative groups
+- `bottle` — your personal inventory; 16-dimensional flavor profile stored as `JSONB` on the same row
+- `ingredient_class` — taxonomy with parent_id hierarchy (spirits, bitters, juices, garnishes); `is_garnish` and `is_commodity` flags mark always-available pantry items
 
-Database schema is generated by `generate_seed_sql.py`.
+Database schema and seed are generated by `scripts/generate_seed_sql.py`.
 
 ## Advanced
 
@@ -313,41 +355,42 @@ Full details: [Deployment & GitOps](#openshift-gitops-detailed) below.
 
 ### 2D Flavor Map Calibration (Detailed)
 
-When you add/remove many bottles, UMAP and DBSCAN may discover different clusters. Impressions are calibrated to a specific bottle set via a 75% overlap matching heuristic.
+Impressions are calibrated to a specific bottle set via a 75% overlap matching heuristic — when a new cluster's bottle set overlaps an existing impression's bottle set by ≥75%, the curated text is preserved; otherwise an auto-generated `<Primary>-leaning · TODO:` placeholder is written. The 2D-map's UMAP + DBSCAN result is deterministic given identical bottle order, so calibration output matches the live frontend exactly when run inside the frontend container (see "Why inside the container?" below).
 
-**Workflow:**
+**Default workflow (single bottle, live stack):**
 
-1. Update `scripts/data/bottles_seed.json` with new bottles
-2. Generate new seed:
-   ```bash
-   cd scripts && python generate_seed_sql.py data/bottles_seed.json
-   cp seed.sql ../db/seed.sql
-   ```
-3. Reseed the database:
-   ```bash
-   docker compose down -v && docker compose up -d
-   ```
-4. Wait for backend to initialize (30s), then calibrate:
-   ```bash
-   python scripts/calibrate_clusters.py --backend-url http://localhost:8080 --write
-   ```
-5. Review `frontend/app/data/cluster_impressions.json` — edit TODO lines with real descriptions
-6. Rebuild frontend:
-   ```bash
-   docker compose up -d --build frontend
-   ```
+```bash
+./scripts/add-bottle.sh /tmp/new_bottle.json
+```
+
+See [Flow A](#flow-a--add-one-bottle-to-a-running-stack-recommended). The script handles upsert + regenerate + calibrate + TODO surface end to end.
+
+**Re-cluster only (no DB write):**
+
+```bash
+./scripts/regen-flavor-map.sh
+```
+
+Use after editing a flavor profile in place or removing a bottle via the API.
 
 **Tuning DBSCAN:**
 
-If clustering looks wrong, adjust `eps`:
+If clustering looks wrong, run calibrate manually with different params:
+
 ```bash
-python scripts/calibrate_clusters.py --eps 0.7 --backend-url http://localhost:8080 --write
+docker exec --user 0 mix-ml-frontend \
+    python -m app._tools.calibrate \
+        --backend-url http://backend:8080 \
+        --eps 0.7 --min-samples 2 --write
 ```
 
 - Larger `eps` → fewer, larger clusters
 - Smaller `eps` → more, tighter clusters
 - Typical range for 30–80 bottles: 0.4–0.8
 - Typical UMAP coordinate range: x ≈ 5 units, y ≈ 6 units
+- `min_samples` must be ≥2; raising it pushes more bottles into the outlier ring
+
+**Why inside the container?** `scikit-learn` minor versions can change DBSCAN cluster IDs even with identical input. The image pins `scikit-learn 1.8.0` and `umap-learn 0.5.12`; a host venv can drift to newer versions and silently produce a different partition than what the frontend renders. Calibrating inside the container guarantees the impressions file matches the live clusters.
 
 ### Scraper & Analyzer (Advanced)
 
@@ -428,14 +471,18 @@ git push
 
 *Update bottle seed data:*
 ```bash
-# 1. Edit scripts/data/bottles_seed.json
-# 2. Regenerate seed
-cd scripts && python generate_seed_sql.py data/bottles_seed.json
-cp seed.sql ../db/seed.sql
+# Live-stack path (preferred — no DB wipe, no image rebuild):
+./scripts/add-bottle.sh /tmp/new_bottle.json --regen-seed
+# Hand-curate any TODO impressions, then:
+git add scripts/data/bottles_seed.json frontend/app/data/cluster_impressions.json \
+        scripts/seed.sql db/seed.sql
+git commit -m "feat(bottles): add <name>"
+git push
 
-# 3. Commit, push
-# 4. ArgoCD UI → Refresh → Sync
-# (PostSync hook re-seeds automatically)
+# Cold-start path (only if the cluster is being reseeded from scratch):
+cd scripts && python generate_seed_sql.py data/iba_cocktails_normalized.json
+cp seed.sql ../db/seed.sql
+# Commit, push, ArgoCD will pick up the new db/seed.sql on the next PostSync.
 ```
 
 ### CI/CD Pipelines (Advanced)
@@ -516,19 +563,23 @@ mix-ml/
 │   │   ├── services/                  # UMAP, clustering, optimization
 │   │   ├── templates/                 # Jinja2 HTML
 │   │   ├── static/                    # CSS, favicon, images
+│   │   ├── _tools/
+│   │   │   └── calibrate.py           # In-container 2D-map calibrator
 │   │   └── data/
-│   │       └── cluster_impressions.json # Human-written cluster descriptions
+│   │       └── cluster_impressions.json # Human-written cluster descriptions (bind-mounted)
 │   ├── tests/                         # 80 unit/integration tests
 │   └── pyproject.toml
 ├── db/                                # Database schema
 │   └── seed.sql                       # IBA recipes + default bottles
 ├── scripts/                           # Offline tools
-│   ├── generate_seed_sql.py           # Build seed.sql from JSON
-│   ├── calibrate_clusters.py          # Tune DBSCAN, update impressions
+│   ├── add-bottle.sh                  # One-command add-a-bottle pipeline (primary)
+│   ├── regen-flavor-map.sh            # Re-cluster only (no bottle write)
+│   ├── generate_seed_sql.py           # Build seed.sql from bottles_seed.json + IBA JSON
+│   ├── calibrate_clusters.py          # Host-side calibrator (used when no stack is running)
 │   ├── scrape_iba.py                  # Download IBA recipes
 │   ├── analyze_iba.py                 # Generate reports
 │   ├── data/
-│   │   ├── bottles_seed.json          # Your bottle inventory
+│   │   ├── bottles_seed.json          # Your bottle inventory (source of truth)
 │   │   └── iba_cocktails_normalized.json # Normalized recipe JSON
 │   └── requirements-scripts.txt       # scipy, numpy for UMAP
 ├── manifests/                         # Kubernetes + ArgoCD
@@ -541,8 +592,8 @@ mix-ml/
 │   ├── test_frontend_ci.sh
 │   ├── test_gitops_setup.sh
 │   └── test_full_gitops.sh
-├── docker-compose.yaml                # Production image versions
-├── compose.build.yaml                 # Local dev overrides (exposes ports)
+├── compose.yaml                       # Production image versions + bind mounts
+├── compose.build.yaml                 # Local dev overrides (exposes ports, builds from source)
 └── .gitignore                         # Excludes .venv, .env, outputs
 ```
 
@@ -558,10 +609,13 @@ A: No. Docker Compose is fully functional (simplest for most users). OpenShift i
 A: The API currently hardcodes 16 dimensions (14 gustative + 2 structural). Adding/removing dimensions requires schema migration + frontend updates.
 
 **Q: How do I add new bottles?**
-A: Edit `scripts/data/bottles_seed.json`, regenerate seed.sql, reseed DB. No code changes needed.
+A: Write a single-bottle JSON file and run `./scripts/add-bottle.sh /tmp/new_bottle.json`. The script upserts into the live DB via `/api/bottles/_bulk` (no `down -v`), triggers a frontend regenerate, refreshes `cluster_impressions.json` inside the container, and surfaces any clusters that need a curated impression. See [Flow A](#flow-a--add-one-bottle-to-a-running-stack-recommended).
 
 **Q: What if my cluster impressions are stale after adding bottles?**
-A: Run `calibrate_clusters.py --write` to auto-match with 75% overlap heuristic and flag new clusters with TODO.
+A: `add-bottle.sh` already runs the in-container calibrator at the end of every invocation. For a re-cluster without a DB change (e.g. you tweaked a flavor profile), run `./scripts/regen-flavor-map.sh`. Both use the 75% overlap heuristic to preserve curated impressions and flag the rest with `<Primary>-leaning · TODO:` placeholders.
+
+**Q: Do I need to rebuild the frontend image after editing a cluster impression?**
+A: No. `cluster_impressions.json` is bind-mounted from the host into the container, and the loader is mtime-aware. Edit the file, request a page, the new text is served. `docker compose restart frontend` is only needed if you also want to clear the cached 2D map itself.
 
 ## License & Attribution
 
@@ -571,5 +625,5 @@ Flavor profiles, bottle additions, and optimizations are author's own.
 
 ---
 
-**Last updated:** May 2026  
-**Latest version:** v1.3.9
+**Last updated:** June 2026
+**Latest versions:** frontend v1.3.13 · backend v1.3.2

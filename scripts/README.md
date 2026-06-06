@@ -8,14 +8,16 @@ Offline tools for building, analyzing, and calibrating the mix-ml platform.
 
 ```
 scripts/
+├── add-bottle.sh              # One-command add-a-bottle (primary entry point)
+├── regen-flavor-map.sh        # Re-cluster only (no DB write)
 ├── scrape_iba.py              # Download all 102 IBA recipes from iba-world.com
 ├── analyze_iba.py             # Generate descriptive reports from recipes
-├── generate_seed_sql.py       # Build seed.sql from normalized JSON + bottles
-├── calibrate_clusters.py      # Tune DBSCAN, match cluster impressions
+├── generate_seed_sql.py       # Build seed.sql from bottles_seed.json + IBA JSON
+├── calibrate_clusters.py      # Host-side calibrator (used when no stack is running)
 ├── flavor_matrix.py           # Offline pairwise flavor distance heatmap
 ├── requirements-scripts.txt   # Dependencies: scipy, numpy, scikit-learn
 ├── data/
-│   ├── bottles_seed.json           # Your bottle inventory (EDIT THIS)
+│   ├── bottles_seed.json           # Your bottle inventory (source of truth)
 │   ├── iba_cocktails.json          # Raw scraper output
 │   ├── iba_cocktails_normalized.json
 │   └── taxonomy_classes.csv
@@ -23,50 +25,51 @@ scripts/
 └── seed.sql                   # Generated database seed
 ```
 
-## Seed Generation (Main Workflow)
+## Add a Bottle (Primary Workflow)
 
-To update your bottle collection:
+With the stack running (`docker compose up -d`):
 
 ```bash
-# 1. Edit bottles_seed.json with your bottles
-vim scripts/data/bottles_seed.json
+# 1. Write the new bottle as a single-object JSON (see schema in the root README).
+# 2. Run the orchestrator:
+./scripts/add-bottle.sh /tmp/new_bottle.json
+```
 
-# 2. Regenerate seed.sql
+The script appends to `bottles_seed.json`, upserts via `/api/bottles/_bulk` (no `down -v`), triggers a frontend regenerate, runs `python -m app._tools.calibrate` inside the frontend container, refreshes the bind-mounted `cluster_impressions.json`, surfaces TODO clusters, and prints the suggested git commit. It does **not** auto-commit. Pass `--regen-seed` to also rewrite `scripts/seed.sql` and `db/seed.sql`.
+
+Re-cluster without a DB change:
+
+```bash
+./scripts/regen-flavor-map.sh
+```
+
+## Cold-start Seed Generation
+
+When you want a fresh DB seeded directly from `bottles_seed.json` (instead of replaying the API):
+
+```bash
 cd scripts
-python generate_seed_sql.py data/bottles_seed.json data/iba_cocktails_normalized.json
-
-# 3. Update database
+python generate_seed_sql.py data/iba_cocktails_normalized.json   # reads bottles_seed.json automatically
 cp seed.sql ../db/seed.sql
 docker compose down -v && docker compose up -d
 ```
 
-The seed SQL is idempotent — safe to run multiple times.
+The seed SQL is idempotent — safe to re-load.
 
-## Calibration (After Major Bottle Changes)
+## Tuning DBSCAN
 
-When you add/remove many bottles, UMAP and DBSCAN will discover different clusters. Recalibrate:
-
-```bash
-# Start backend if not already running
-docker compose up -d backend
-
-# Generate new cluster compositions (preserves existing impressions where possible)
-python calibrate_clusters.py --backend-url http://localhost:8080 --write
-
-# Edit cluster_impressions.json: replace "TODO" lines with real descriptions
-# Example: "Extreme botanicals" instead of "TODO: Cluster 0"
-
-# Rebuild frontend to load new impressions
-docker compose up -d --build frontend
-```
-
-To tune DBSCAN if clusters look wrong:
+If clustering looks wrong, run the in-container calibrator with different params:
 
 ```bash
-python calibrate_clusters.py --eps 0.7 --backend-url http://localhost:8080 --write
+docker exec --user 0 mix-ml-frontend \
+    python -m app._tools.calibrate \
+        --backend-url http://backend:8080 \
+        --eps 0.7 --min-samples 2 --write
 ```
 
-Typical `eps` range for 30–80 bottles: 0.4–0.8. Larger = fewer clusters.
+Typical `eps` range for 30–80 bottles: 0.4–0.8. Larger `eps` → fewer, bigger clusters.
+
+The host-side `calibrate_clusters.py` is kept as a fallback for the no-stack case. **Prefer the in-container path** — `scikit-learn` minor versions can change DBSCAN cluster IDs even with identical input, and the container pins the exact versions the frontend renders against (sklearn 1.8.0, umap-learn 0.5.12).
 
 ## Scraper
 

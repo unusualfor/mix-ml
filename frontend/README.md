@@ -84,14 +84,16 @@ The interactive scatter plot uses:
 - `random_state=42` (deterministic)
 
 **DBSCAN parameters:**
-- `eps=0.6` (tunable via `calibrate_clusters.py`)
+- `eps=0.6` (tunable via the in-container `app._tools.calibrate` module)
 - `min_samples=2`
 - Outliers get individual cluster IDs (-1, -2, -3, ... -8 for 8 outliers)
 
 **Cluster impressions** (`frontend/app/data/cluster_impressions.json`):
 - Stored as JSON with bottle set compositions + human-written descriptions
+- **Bind-mounted into the container** — edits don't require an image rebuild
+- Loader uses an mtime-aware cache: new file content is picked up between requests, no process restart needed (`docker compose restart frontend` is only needed to clear the cached 2D map itself)
 - Matched to live clusters via 75% overlap heuristic
-- Auto-generated fallback for new/shifted clusters (bland "Top notes" text)
+- Auto-generated fallback for new/shifted clusters: `<Primary>-leaning · Signature notes: …` (the prefix is what the side panel renders as the cluster title, so unnamed clusters never fall back to a generic "Outlier" label)
 
 **Coloring modes:**
 - **Cluster**: ML-discovered DBSCAN groups (colorful palette)
@@ -103,7 +105,7 @@ The interactive scatter plot uses:
 - Zoom/pan with mouse wheel/drag (Plotly default)
 - Toggle coloring mode with buttons
 
-See root README [2D Flavor Map Calibration](#2d-flavor-map-calibration-detailed) for tuning after changing bottles.
+See root README [2D Flavor Map Calibration](../README.md#2d-flavor-map-calibration-detailed) for tuning after changing bottles, and [`scripts/add-bottle.sh`](../scripts/add-bottle.sh) for the one-command add-a-bottle pipeline.
 
 ## Heatmap
 

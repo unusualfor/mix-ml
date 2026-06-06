@@ -42,10 +42,11 @@ API available at **http://localhost:8000/docs** (interactive Swagger UI).
 |--------|------|---------|
 | GET | `/healthz` | Liveness probe (always 200) |
 | GET | `/readyz` | Readiness probe (checks DB connection) |
-| GET | `/api/bottles` | Your bottle inventory as JSON |
+| GET | `/api/bottles` | Your bottle inventory as `{total, items}` (paginated, `?limit=` up to 500) |
 | GET | `/api/bottles/{id}` | Bottle detail |
 | POST | `/api/bottles` | Create bottle |
-| PUT | `/api/bottles/{id}` | Update bottle |
+| POST | `/api/bottles/_bulk` | Idempotent upsert by `(brand, label)` — primary entry point for `scripts/add-bottle.sh` |
+| PATCH | `/api/bottles/{id}` | Update bottle (flavor profile, on-hand flag, etc.) |
 | DELETE | `/api/bottles/{id}` | Delete bottle |
 | GET | `/api/recipes` | IBA recipes (filterable: `?category=`, `?search=`, `?limit=`, `?offset=`) |
 | GET | `/api/recipes/{id}` | Recipe detail with ingredients |
@@ -120,15 +121,14 @@ To track Champagne as an actual inventoried bottle, either:
 
 ## Database Schema
 
-Tables created by `db/seed.sql`:
-- `recipes` — 102 IBA cocktails
-- `recipe_ingredients` — ingredients per recipe
-- `bottles` — personal bottle inventory
-- `bottle_flavors` — 16-dimensional flavor profiles
-- `ingredient_classes` — taxonomy
-- `cocktail_categories` — (unforgettable, contemporary, new_era)
+Tables created by `db/seed.sql` (singular names — see `scripts/generate_seed_sql.py:260` for DDL):
 
-See `db/seed.sql` for full schema definition.
+- `ingredient_class` — taxonomy with `(parent_id, name, is_garnish, is_commodity)`
+- `bottle` — personal inventory; flavor profile stored as `JSONB` on the same row
+- `recipe` — 102 IBA cocktails with `(name, iba_category, method, glass, garnish)`
+- `recipe_ingredient` — many-to-many recipe→class with `(amount, unit, is_optional, alternative_group_id)`
+
+Bottle ordering note: `BOTTLES_LIST` orders by `(ic.name, b.brand, b.label NULLS FIRST, b.id)`. The label and id tiebreakers were added because UMAP on `/inventory/flavor-map` is order-sensitive, and the original `(class, brand)` ordering let Postgres return same-brand rows in arbitrary physical order — so `limit=100` vs `limit=200` callers got different cluster partitions.
 
 ## Common Issues
 
