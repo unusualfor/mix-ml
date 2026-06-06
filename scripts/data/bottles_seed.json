@@ -1116,5 +1116,31 @@
       "intensity": 3
     },
     "notes": "Doppia macerazione di prugne ume di Nara"
+  },
+  {
+    "class_name": "Vermouth Amaro",
+    "brand": "Cocchi",
+    "label": "Dopo Teatro Vermouth Amaro",
+    "abv": 16.0,
+    "on_hand": true,
+    "flavor_profile": {
+      "sweet": 4,
+      "bitter": 4,
+      "sour": 1,
+      "citrusy": 2,
+      "fruity": 4,
+      "herbal": 3,
+      "floral": 2,
+      "spicy": 3,
+      "smoky": 0,
+      "vanilla": 2,
+      "woody": 3,
+      "minty": 0,
+      "earthy": 2,
+      "umami": 0,
+      "body": 4,
+      "intensity": 4
+    },
+    "notes": "Vermouth amaro chinato a base Barolo Chinato; artemisia, rabarbaro, quassio, chiretta, doppia infusione di china; note di ciliegia, viola, scorza d'arancia, cacao"
   }
 ]

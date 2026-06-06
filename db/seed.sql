@@ -986,7 +986,8 @@ INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) VALUES ((SELECT
 INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) VALUES ((SELECT id FROM ingredient_class WHERE name = 'Sake Junmai Daiginjo'), 'Asahi Shuzo', 'Dassai 45', 15, '{"sweet": 2, "bitter": 0, "sour": 1, "citrusy": 2, "fruity": 4, "herbal": 1, "floral": 4, "spicy": 0, "smoky": 0, "vanilla": 0, "woody": 0, "minty": 0, "earthy": 0, "umami": 3, "body": 1, "intensity": 3}');
 INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) VALUES ((SELECT id FROM ingredient_class WHERE name = 'Sake (generic)'), 'Tatsuuma-Honke', 'Hakushika', 15, '{"sweet": 2, "bitter": 0, "sour": 1, "citrusy": 1, "fruity": 2, "herbal": 1, "floral": 2, "spicy": 0, "smoky": 0, "vanilla": 0, "woody": 0, "minty": 0, "earthy": 0, "umami": 3, "body": 1, "intensity": 2}');
 INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) VALUES ((SELECT id FROM ingredient_class WHERE name = 'Umeshu Premium'), 'Godo Shusei', 'Oshuku Umeshu (Ohshukubai Shigoku Nidan)', 15, '{"sweet": 5, "bitter": 0, "sour": 3, "citrusy": 1, "fruity": 5, "herbal": 0, "floral": 1, "spicy": 0, "smoky": 0, "vanilla": 0, "woody": 0, "minty": 0, "earthy": 0, "umami": 2, "body": 3, "intensity": 3}');
--- (43 bottles total)
+INSERT INTO bottle (class_id, brand, label, abv, flavor_profile) VALUES ((SELECT id FROM ingredient_class WHERE name = 'Vermouth Amaro'), 'Cocchi', 'Dopo Teatro Vermouth Amaro', 16, '{"sweet": 4, "bitter": 4, "sour": 1, "citrusy": 2, "fruity": 4, "herbal": 3, "floral": 2, "spicy": 3, "smoky": 0, "vanilla": 2, "woody": 3, "minty": 0, "earthy": 2, "umami": 0, "body": 4, "intensity": 4}');
+-- (44 bottles total)
 
 -- ==========================================================================
 -- Seed complete
