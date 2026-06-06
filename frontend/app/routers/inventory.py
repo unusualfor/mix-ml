@@ -201,6 +201,7 @@ def flavor_map_regenerate(request: Request):
     from app.main import _generate_flavor_matrix
     _generate_flavor_matrix(request.app)
     ctx = _flavor_map_ctx(request)
+    ctx["default_view"] = "2dmap"
     return templates.TemplateResponse(request, "flavor_map.html", ctx)
 
 

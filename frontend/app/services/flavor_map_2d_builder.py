@@ -127,8 +127,22 @@ def _load_impressions() -> tuple[dict[int, dict], dict[tuple[str, str | None], s
     return clusters, outliers
 
 
-# Loaded at module import time (cached for process lifetime)
-CLUSTER_COMPOSITIONS, NOISE_IMPRESSIONS = _load_impressions()
+# mtime-aware cache so a bind-mounted impressions file is picked up without
+# a process restart: re-read whenever the file's modification time changes.
+_IMPRESSIONS_CACHE: dict = {"mtime": None, "clusters": {}, "outliers": {}}
+
+
+def _get_impressions() -> tuple[dict[int, dict], dict[tuple[str, str | None], str]]:
+    try:
+        mtime = _IMPRESSIONS_FILE.stat().st_mtime
+    except FileNotFoundError:
+        mtime = None
+    if mtime != _IMPRESSIONS_CACHE["mtime"]:
+        clusters, outliers = _load_impressions()
+        _IMPRESSIONS_CACHE["mtime"] = mtime
+        _IMPRESSIONS_CACHE["clusters"] = clusters
+        _IMPRESSIONS_CACHE["outliers"] = outliers
+    return _IMPRESSIONS_CACHE["clusters"], _IMPRESSIONS_CACHE["outliers"]
 
 
 def _auto_impression(bottles_in_cluster: list[dict]) -> str:
@@ -173,11 +187,13 @@ def get_cluster_impression(
         (b.get("brand", "Unknown"), b.get("label") or None)
         for b in bottles_in_cluster
     )
-    
+
+    cluster_compositions, _ = _get_impressions()
+
     # Find best-matching composition (≥75% overlap)
     best_overlap = 0.0
     best_impression = None
-    for _cid, comp in CLUSTER_COMPOSITIONS.items():
+    for _cid, comp in cluster_compositions.items():
         known_key = comp["bottles"]
         overlap = len(cluster_key & known_key) / max(len(known_key), 1)
         if overlap > best_overlap:
@@ -194,8 +210,9 @@ def get_cluster_impression(
 def get_noise_impression(bottle: dict) -> str:
     """Get per-bottle impression for a DBSCAN noise point (outlier)."""
     key = (bottle.get("brand", "Unknown"), bottle.get("label") or None)
-    if key in NOISE_IMPRESSIONS:
-        return NOISE_IMPRESSIONS[key]
+    _, noise_impressions = _get_impressions()
+    if key in noise_impressions:
+        return noise_impressions[key]
     return _auto_impression([bottle])
 
 

@@ -29,10 +29,17 @@ services:
       - caddy
 
   frontend:
-    image: ghcr.io/unusualfor/mix-ml-frontend:v1.3.12
+    image: ghcr.io/unusualfor/mix-ml-frontend:v1.3.13
     container_name: mix-ml-frontend
     environment:
       BACKEND_URL: "http://backend:8080"
+    volumes:
+      # Bind-mount impressions so curated text changes don't require a
+      # frontend image rebuild — just `docker compose restart frontend`.
+      # Read-write so scripts/regen-flavor-map.sh and add-bottle.sh can
+      # `docker exec` the in-container calibrate tool and write directly
+      # back to the host file.
+      - ./frontend/app/data/cluster_impressions.json:/opt/app-root/src/app/data/cluster_impressions.json:Z
     depends_on:
       - backend
     networks:
