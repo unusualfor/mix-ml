@@ -113,7 +113,7 @@ BOTTLES_LIST = text("""
     WHERE (CAST(:on_hand AS text) IS NULL OR b.on_hand = CAST(:on_hand AS boolean))
       AND (CAST(:class_name AS text) IS NULL OR ic.name = :class_name)
       AND (CAST(:family AS text) IS NULL OR p.name = :family)
-    ORDER BY ic.name, b.brand
+    ORDER BY ic.name, b.brand, b.label NULLS FIRST, b.id
     LIMIT :limit OFFSET :offset
 """)
 

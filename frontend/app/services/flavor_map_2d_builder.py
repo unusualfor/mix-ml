@@ -132,24 +132,29 @@ CLUSTER_COMPOSITIONS, NOISE_IMPRESSIONS = _load_impressions()
 
 
 def _auto_impression(bottles_in_cluster: list[dict]) -> str:
-    """Auto-generate impression from top-3 flavor dimensions."""
+    """Auto-generate impression from top-3 flavor dimensions.
+
+    Format: "<Primary>-leaning · Signature notes: ..."  — the prefix before
+    " · " is what inventory._flavor_map_ctx extracts as the panel card title.
+    """
     if not bottles_in_cluster:
-        return "Empty cluster."
-    
+        return "Empty · No bottles in this group."
+
     # Aggregate mean profile
     profile_mean = {}
     for dim in _ALL_DIMS:
         values = [b.get("flavor_profile", {}).get(dim, 0) for b in bottles_in_cluster]
         profile_mean[dim] = sum(values) / len(values)
-    
+
     # Top 3 dimensions by mean value
     top3 = sorted(profile_mean.items(), key=lambda x: x[1], reverse=True)[:3]
     parts = [f"{dim} ({val:.1f})" for dim, val in top3 if val > 0.1]
-    
+
     if not parts:
         return "Unique profile · No dominant flavor dimensions."
-    
-    return f"Signature notes: {', '.join(parts)}."
+
+    title = f"{top3[0][0].capitalize()}-leaning"
+    return f"{title} · Signature notes: {', '.join(parts)}."
 
 
 def get_cluster_impression(

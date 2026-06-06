@@ -50,7 +50,7 @@ IMPRESSIONS_FILE = _FRONTEND / "app" / "data" / "cluster_impressions.json"
 
 def fetch_bottles(backend_url: str) -> list[dict]:
     """Fetch bottles with flavor profiles from backend."""
-    resp = httpx.get(f"{backend_url}/api/bottles", timeout=30)
+    resp = httpx.get(f"{backend_url}/api/bottles", params={"limit": 200}, timeout=30)
     resp.raise_for_status()
     data = resp.json()
     bottles = data["items"] if isinstance(data, dict) and "items" in data else data
@@ -163,7 +163,11 @@ def build_output(
                 vals = [b.get("flavor_profile", {}).get(dim, 0) for b in cluster_bottles]
                 profile_mean[dim] = sum(vals) / len(vals)
             top3 = sorted(profile_mean.items(), key=lambda x: x[1], reverse=True)[:3]
-            impression = f"TODO: Write impression. Top notes: {', '.join(d for d, _ in top3)}."
+            title = f"{top3[0][0].capitalize()}-leaning" if top3 else "Unnamed"
+            impression = (
+                f"{title} · TODO: Write impression. "
+                f"Top notes: {', '.join(d for d, _ in top3)}."
+            )
 
         output["clusters"][str(cid)] = {
             "bottles": bottle_list,
@@ -179,7 +183,11 @@ def build_output(
         if not impression:
             profile = bottle.get("flavor_profile", {})
             top3 = sorted(profile.items(), key=lambda x: x[1], reverse=True)[:3]
-            impression = f"TODO: Write impression. Top notes: {', '.join(d for d, _ in top3)}."
+            title = f"{top3[0][0].capitalize()}-leaning" if top3 else "Unnamed"
+            impression = (
+                f"{title} · TODO: Write impression. "
+                f"Top notes: {', '.join(d for d, _ in top3)}."
+            )
 
         output["outliers"][key] = {
             "label": label,

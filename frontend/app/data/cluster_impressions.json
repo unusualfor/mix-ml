@@ -15,8 +15,58 @@
           "Riserva Speciale"
         ],
         [
+          "Nonino",
+          "Quintessentia"
+        ],
+        [
+          "Cocchi",
+          "Dopo Teatro Vermouth Amaro"
+        ],
+        [
+          "Martini",
+          "Riserva Speciale Rubino"
+        ]
+      ],
+      "impression": "Intensity-leaning · TODO: Write impression. Top notes: intensity, sweet, bitter."
+    },
+    "1": {
+      "bottles": [
+        [
+          "Formidabile",
+          null
+        ],
+        [
+          "Angostura",
+          "Aromatic Bitters"
+        ],
+        [
           "Fusetti",
-          "Bitter Cacao"
+          "Bitter Banana"
+        ],
+        [
+          "Fusetti",
+          "Bitter Mare"
+        ],
+        [
+          "Fusetti",
+          "Bitter Mexico"
+        ],
+        [
+          "Fusetti",
+          "Bitter Original"
+        ],
+        [
+          "Campari",
+          null
+        ]
+      ],
+      "impression": "Intensity-leaning · TODO: Write impression. Top notes: intensity, bitter, citrusy."
+    },
+    "2": {
+      "bottles": [
+        [
+          "Montenegro",
+          null
         ],
         [
           "Koval",
@@ -27,28 +77,8 @@
           "Chandolia Mastiha"
         ],
         [
-          "Cynar",
-          null
-        ],
-        [
-          "Komasa",
-          "Komikan"
-        ],
-        [
-          "Suntory",
-          "Roku"
-        ],
-        [
-          "Tanqueray",
-          "No. Ten"
-        ],
-        [
           "Tintura Imperiale",
           null
-        ],
-        [
-          "Carpano",
-          "Punt e Mes"
         ],
         [
           "Martini",
@@ -59,30 +89,26 @@
           "Vermouth Rosso"
         ]
       ],
-      "impression": "Extreme botanicals · Four bottles with nothing in common on the label, everything in common in the glass. Alpine herbs, damask rose, Chios mastic and 90% anise — all intensely aromatic, all transformative in small doses. Use any of these and the drink knows it."
+      "impression": "Intensity-leaning · TODO: Write impression. Top notes: intensity, herbal, sweet."
     },
-    "1": {
+    "3": {
       "bottles": [
         [
-          "Angostura",
-          "Aromatic Bitters"
-        ],
-        [
           "Fusetti",
-          "Bitter Original"
+          "Bitter Cacao"
         ],
         [
-          "Fusetti",
-          "Bitter Mexico"
-        ],
-        [
-          "Campari",
+          "Cynar",
           null
+        ],
+        [
+          "Carpano",
+          "Punt e Mes"
         ]
       ],
-      "impression": "TODO: Write impression. Top notes: bitter, intensity, citrusy."
+      "impression": "Bitter-leaning · TODO: Write impression. Top notes: bitter, intensity, sweet."
     },
-    "2": {
+    "4": {
       "bottles": [
         [
           "A. Smith Bowman",
@@ -90,11 +116,15 @@
         ],
         [
           "Buffalo Trace",
-          "Eagle Rare 10 Year"
+          "Barrel Select Sazerac"
         ],
         [
           "Buffalo Trace",
           "Blanton's Original Single Barrel"
+        ],
+        [
+          "Buffalo Trace",
+          "Eagle Rare 10 Year"
         ],
         [
           "Buffalo Trace",
@@ -105,20 +135,16 @@
           "Kentucky Straight Bourbon"
         ],
         [
-          "Buffalo Trace",
-          "Barrel Select Sazerac"
-        ],
-        [
           "Calumet Farm",
           "Vintage Release 8 Years"
         ],
         [
           "Buffalo Trace",
-          "Weller Special Reserve Single Barrel Select"
+          "Weller 12 Year"
         ],
         [
           "Buffalo Trace",
-          "Weller 12 Year"
+          "Weller Special Reserve Single Barrel Select"
         ],
         [
           "Maker's Mark",
@@ -131,7 +157,7 @@
       ],
       "impression": "American whiskey · Eleven bourbons in tight formation — vanilla, oak and caramel with varying wheat-rye balance. The most internally coherent cluster in the collection. Small differences matter here: the wheated bottles sit slightly apart from the high-rye mashbills."
     },
-    "3": {
+    "5": {
       "bottles": [
         [
           "Buffalo Trace",
@@ -148,12 +174,29 @@
       ],
       "impression": "Structured complexity · The collection’s most unexpected pairing. A Virginia small-batch bourbon and an apple-brandy-based sweet vermouth from the same state — separated by category, united by structured caramel, body and a shared unhurried weight. A reminder that flavor doesn’t respect labels."
     },
-    "4": {
+    "6": {
       "bottles": [
+        [
+          "Komasa",
+          "Komikan"
+        ],
+        [
+          "Suntory",
+          "Roku"
+        ],
         [
           "Suntory",
           "Roku Sakura Edition"
         ],
+        [
+          "Tanqueray",
+          "No. Ten"
+        ]
+      ],
+      "impression": "Core gin · Citrus, floral and botanical — the gin cluster without the outliers. Tanqueray anchors the citrus pole, the three Japanese gins bring floral lift and a softer juniper presence. All four work in any classic gin cocktail."
+    },
+    "7": {
+      "bottles": [
         [
           "Tatsuuma-Honke",
           "Hakushika"
@@ -161,39 +204,15 @@
         [
           "Asahi Shuzo",
           "Dassai 45"
-        ],
-        [
-          "Godo Shusei",
-          "Oshuku Umeshu (Ohshukubai Shigoku Nidan)"
         ]
       ],
       "impression": "Japanese sake · Two bottles, one quiet corner of the collection. Low intensity, delicate umami, subtle fruit. Nothing else in the bar competes for this flavor space — which is exactly why they cluster alone."
     }
   },
   "outliers": {
-    "Formidabile": {
-      "label": null,
-      "impression": "TODO: Write impression. Top notes: intensity, bitter, citrusy."
-    },
-    "Montenegro": {
-      "label": null,
-      "impression": "TODO: Write impression. Top notes: sweet, herbal, floral."
-    },
-    "Nonino__Quintessentia": {
-      "label": "Quintessentia",
-      "impression": "TODO: Write impression. Top notes: sweet, bitter, fruity."
-    },
     "Aperol": {
       "label": null,
       "impression": "Between worlds · Too light and orange-sweet for the bitter cluster, too amaro-tinged for the gin cluster. Aperol Spritz works because Aperol needs Prosecco to find its place — in pure flavor space it stands alone."
-    },
-    "Fusetti__Bitter Banana": {
-      "label": "Bitter Banana",
-      "impression": "TODO: Write impression. Top notes: fruity, intensity, sweet."
-    },
-    "Fusetti__Bitter Mare": {
-      "label": "Bitter Mare",
-      "impression": "TODO: Write impression. Top notes: herbal, citrusy, intensity."
     },
     "Metaxa__3 Stars": {
       "label": "3 Stars",
@@ -203,13 +222,9 @@
       "label": "Select Aperitivo",
       "impression": "Venetian aperitivo bridge · Select sits between the gin cluster and the bitter cluster, sharing botanical character with the former and bitter-citrus with the latter. The original Spritz ingredient that predates Aperol — and more complex than either cluster captures."
     },
-    "Cocchi__Dopo Teatro Vermouth Amaro": {
-      "label": "Dopo Teatro Vermouth Amaro",
-      "impression": "TODO: Write impression. Top notes: sweet, bitter, fruity."
-    },
-    "Martini__Riserva Speciale Rubino": {
-      "label": "Riserva Speciale Rubino",
-      "impression": "TODO: Write impression. Top notes: sweet, fruity, spicy."
+    "Godo Shusei__Oshuku Umeshu (Ohshukubai Shigoku Nidan)": {
+      "label": "Oshuku Umeshu (Ohshukubai Shigoku Nidan)",
+      "impression": "Plum solitude · Double-macerated ume plums produce an extreme sweet-tart profile unlike anything else in the collection. Too fruity-acidic for sake cluster, too sweet for anywhere else. Nearest neighbor is Dassai 45, but the distance is significant."
     }
   }
 }

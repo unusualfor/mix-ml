@@ -86,7 +86,7 @@
           <span class="text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
             {% if cluster.id < 0 %}&#x25cb;{% else %}{{ cluster.id + 1 }}{% endif %}
           </span>
-          <span class="text-sm font-medium text-slate-700 truncate">{{ cluster.title or 'Outlier' }}</span>
+          <span class="text-sm font-medium text-slate-700 truncate">{{ cluster.title or ('Outlier' if cluster.id < 0 else 'Unnamed cluster') }}</span>
           {% if cluster.size > 1 %}
           <span class="text-xs text-slate-400 ml-auto whitespace-nowrap">{{ cluster.size }}</span>
           {% endif %}

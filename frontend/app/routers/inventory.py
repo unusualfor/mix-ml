@@ -137,10 +137,14 @@ def _flavor_map_ctx(request: Request) -> dict:
     # Build clusters list for side panel (if 2D map is available)
     clusters_for_panel = []
     if map_2d:
-        # Sort: real clusters first (ascending), then outliers (descending by id)
+        # Sort: real clusters first by size DESC (largest cluster first),
+        # then outliers ordered by their internal id (-1, -2, -3, ...).
         sorted_ids = sorted(
             map_2d.cluster_impressions.keys(),
-            key=lambda x: (x < 0, -x if x < 0 else x),
+            key=lambda x: (
+                x < 0,
+                -map_2d.cluster_sizes.get(x, 0) if x >= 0 else -x,
+            ),
         )
         for cluster_id in sorted_ids:
             impression = map_2d.cluster_impressions.get(cluster_id, "")
